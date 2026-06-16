@@ -2,10 +2,12 @@ import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from "react-n
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { useRouter } from "expo-router";
+import { useThemeContext } from "@/lib/theme-provider";
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const [darkMode, setDarkMode] = useState(true);
+  const { colorScheme, setColorScheme } = useThemeContext();
+  const isDarkMode = colorScheme === "dark";
   const [editing, setEditing] = useState(false);
   const [showSavedPlaces, setShowSavedPlaces] = useState(false);
   const [showLoyalty, setShowLoyalty] = useState(false);
@@ -70,7 +72,7 @@ export default function ProfileScreen() {
   };
 
   const handleDarkMode = () => {
-    setDarkMode(!darkMode);
+    setColorScheme(colorScheme === "dark" ? "light" : "dark");
   };
 
   const handleReferFriend = () => {
@@ -258,11 +260,11 @@ export default function ProfileScreen() {
 
             {/* Dark Mode */}
             <View className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl">
-              <Text className="text-lg">{darkMode ? "🌙" : "☀️"}</Text>
+              <Text className="text-lg">{isDarkMode ? "🌙" : "☀️"}</Text>
               <Text className="flex-1 text-sm font-medium text-foreground">
-                {darkMode ? "Dark Mode" : "Light Mode"}
+                {isDarkMode ? "Dark Mode" : "Light Mode"}
               </Text>
-              <Switch value={darkMode} onValueChange={handleDarkMode} />
+              <Switch value={isDarkMode} onValueChange={handleDarkMode} />
             </View>
 
             {/* Refer a Friend */}
