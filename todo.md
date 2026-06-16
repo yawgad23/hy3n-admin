@@ -17,6 +17,19 @@
 - [x] Scheduled Trips: upcoming/cancelled cards, cancel/edit actions
 - [x] Contact Support: ticket list, new ticket modal with categories, ticket detail modal
 
+## Firebase Integration
+- [x] Firebase SDK installed (firebase v11)
+- [x] Firebase config connected to Hy3n26 project
+- [x] Firebase Auth: Email/Password sign in, sign up, forgot password
+- [x] Auth context with user state, riderProfile from Firestore
+- [x] Auth gating: unauthenticated users redirected to login screen
+- [x] Login screen, Register screen, Forgot Password screen
+- [x] Account tab: real user data from Firebase (name, email, loyalty points)
+- [x] Account tab: sign out wired to Firebase signOut
+- [x] Activity tab: loads real rides from Firestore (RideRequests collection)
+- [x] Wallet tab: loads real balance and transactions from Firestore
+- [x] Leaflet/OpenStreetMap dark map replacing react-native-maps
+
 ## Technical
 - [x] react-native-maps web stub (metro.config.js resolver)
 - [x] MaterialIcons mapping for payment methods and ride categories

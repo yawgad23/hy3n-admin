@@ -1,8 +1,10 @@
-import { Tabs } from "expo-router";
-import { View, Text, Pressable } from "react-native";
+import { Tabs, router } from "expo-router";
+import { View, ActivityIndicator } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useAuth } from "@/lib/auth-context";
+import { useEffect } from "react";
 
 type TabBarIconProps = {
   name: React.ComponentProps<typeof MaterialIcons>["name"];
@@ -32,6 +34,23 @@ function TabBarIcon({ name, color, focused }: TabBarIconProps) {
 export default function TabLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login' as any);
+    }
+  }, [user, loading]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.background }}>
+        <ActivityIndicator size="large" color="#D4AF37" />
+      </View>
+    );
+  }
+
+  if (!user) return null;
   const bottomPadding = Math.max(insets.bottom, 12);
   const tabBarHeight = 70 + bottomPadding;
 

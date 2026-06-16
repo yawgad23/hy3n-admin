@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
+import { useAuth } from "@/lib/auth-context";
 
 const GOLD = "#D4AF37";
 const GREEN = "#006B3F";
@@ -56,15 +57,24 @@ const SAVED_PLACES_DEFAULT = [
 
 export default function AccountScreen() {
   const router = useRouter();
-  const [userPoints] = useState(850);
+  const { user, riderProfile, signOut, updateProfile } = useAuth();
+  const userPoints = riderProfile?.loyalty_points ?? 0;
 
   const [showEditProfile, setShowEditProfile] = useState(false);
-  const [name, setName] = useState("Kofi Agyeman");
-  const [phone, setPhone] = useState("+233 24 000 0000");
-  const [email, setEmail] = useState("kofi@example.com");
+  const [name, setName] = useState(riderProfile?.full_name || user?.displayName || 'Rider');
+  const [phone, setPhone] = useState(riderProfile?.phone || user?.phoneNumber || '');
+  const [email, setEmail] = useState(riderProfile?.email || user?.email || '');
   const [editName, setEditName] = useState(name);
   const [editPhone, setEditPhone] = useState(phone);
   const [editEmail, setEditEmail] = useState(email);
+
+  useEffect(() => {
+    if (riderProfile) {
+      setName(riderProfile.full_name || user?.displayName || 'Rider');
+      setPhone(riderProfile.phone || user?.phoneNumber || '');
+      setEmail(riderProfile.email || user?.email || '');
+    }
+  }, [riderProfile]);
 
   const [showSavedPlaces, setShowSavedPlaces] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState(SAVED_PLACES_DEFAULT);
@@ -75,7 +85,7 @@ export default function AccountScreen() {
   const [showHelp, setShowHelp] = useState(false);
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
   const [showRefer, setShowRefer] = useState(false);
-  const referCode = "HY3N-KOFI-2024";
+  const referCode = riderProfile?.referral_code || 'HY3N-' + (user?.uid?.slice(0, 6).toUpperCase() || 'RIDER');
 
   const [notifications, setNotifications] = useState(true);
   const [locationSharing, setLocationSharing] = useState(true);
@@ -84,12 +94,17 @@ export default function AccountScreen() {
   const nextTier = LOYALTY_TIERS[LOYALTY_TIERS.indexOf(currentTier) + 1];
   const progressToNext = nextTier ? (userPoints - currentTier.minPoints) / (nextTier.minPoints - currentTier.minPoints) : 1;
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
     setName(editName);
     setPhone(editPhone);
     setEmail(editEmail);
     setShowEditProfile(false);
-    Alert.alert("Saved", "Profile updated successfully");
+    try {
+      await updateProfile({ full_name: editName, phone: editPhone, email: editEmail });
+      Alert.alert('Saved', 'Profile updated successfully');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to save profile');
+    }
   };
 
   const handleSavePlace = () => {
@@ -231,7 +246,7 @@ export default function AccountScreen() {
 
         {/* Sign Out */}
         <TouchableOpacity
-          onPress={() => Alert.alert("Sign Out", "Are you sure you want to sign out?", [{ text: "Cancel", style: "cancel" }, { text: "Sign Out", style: "destructive" }])}
+          onPress={() => Alert.alert('Sign Out', 'Are you sure you want to sign out?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Sign Out', style: 'destructive', onPress: async () => { await signOut(); router.replace('/login' as any); } }])}
           style={{ marginHorizontal: 16, marginBottom: 16, backgroundColor: `${RED}1A`, borderRadius: 16, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: `${RED}4D` }}
         >
           <MaterialIcons name="logout" size={18} color={RED} />

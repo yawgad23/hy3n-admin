@@ -1,0 +1,205 @@
+/**
+ * Firebase configuration for HY3N Rider Mobile App
+ * Project: hy3n26
+ */
+
+import { initializeApp, getApps } from 'firebase/app';
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  sendPasswordResetEmail,
+  onAuthStateChanged,
+  PhoneAuthProvider,
+  signInWithCredential,
+  updateProfile,
+  type User,
+} from 'firebase/auth';
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit as firestoreLimit,
+  onSnapshot,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// ─── Firebase Config ─────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDYUm2xv_8er3oGwk6qVXzAT51hoS4N4dE",
+  authDomain: "hy3n26.firebaseapp.com",
+  projectId: "hy3n26",
+  storageBucket: "hy3n26.firebasestorage.app",
+  messagingSenderId: "362594902321",
+  appId: "1:362594902321:web:9387b08590e7660216d010",
+  measurementId: "G-WH7JZPLP0L"
+};
+
+// Initialize Firebase (avoid re-initialization)
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+export { app, auth, db, storage };
+
+// ─── Firestore Collection Names (matching web app) ────────────────────────────
+export const COLLECTIONS = {
+  RIDER_PROFILES: 'rider_profiles',
+  RIDES: 'rides',
+  WALLET: 'wallets',
+  WALLET_TRANSACTIONS: 'wallet_transactions',
+  SCHEDULED_RIDES: 'scheduled_rides',
+  SUPPORT_TICKETS: 'support_tickets',
+  LOYALTY_POINTS: 'loyalty_points',
+  LOYALTY_REDEMPTIONS: 'loyalty_redemptions',
+  SAVED_PLACES: 'saved_places',
+  REFERRALS: 'referrals',
+  SOS_INCIDENTS: 'sos_incidents',
+  PROMO_CODES: 'promo_codes',
+  PAYMENTS: 'payments',
+  RIDE_REPORTS: 'ride_reports',
+};
+
+// ─── Auth Helpers ─────────────────────────────────────────────────────────────
+
+export const firebaseAuth = {
+  async loginWithEmail(email: string, password: string) {
+    const cred = await signInWithEmailAndPassword(auth, email, password);
+    return cred.user;
+  },
+
+  async register(email: string, password: string, fullName: string) {
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await updateProfile(cred.user, { displayName: fullName });
+    return cred.user;
+  },
+
+  async logout() {
+    await signOut(auth);
+    await AsyncStorage.removeItem('hy3n_user');
+  },
+
+  async resetPassword(email: string) {
+    await sendPasswordResetEmail(auth, email);
+  },
+
+  getCurrentUser(): User | null {
+    return auth.currentUser;
+  },
+
+  onAuthStateChanged(callback: (user: User | null) => void) {
+    return onAuthStateChanged(auth, callback);
+  },
+};
+
+// ─── Firestore Helpers ────────────────────────────────────────────────────────
+
+function docToObj(docSnap: any) {
+  if (!docSnap.exists()) return null;
+  return { id: docSnap.id, ...docSnap.data() };
+}
+
+function snapshotToArray(querySnap: any) {
+  return querySnap.docs.map((d: any) => ({ id: d.id, ...d.data() }));
+}
+
+export const firestoreDB = {
+  async get(collectionName: string, id: string) {
+    const docRef = doc(db, collectionName, id);
+    const docSnap = await getDoc(docRef);
+    return docToObj(docSnap);
+  },
+
+  async list(collectionName: string, filters: Record<string, any> = {}, orderByField = 'created_date', orderDir: 'asc' | 'desc' = 'desc', limitNum?: number) {
+    try {
+      const colRef = collection(db, collectionName);
+      const constraints: any[] = [];
+      for (const [field, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== null) {
+          constraints.push(where(field, '==', value));
+        }
+      }
+      constraints.push(orderBy(orderByField, orderDir));
+      if (limitNum) constraints.push(firestoreLimit(limitNum));
+      const q = query(colRef, ...constraints);
+      const snap = await getDocs(q);
+      return snapshotToArray(snap);
+    } catch (err: any) {
+      // Fallback: fetch all and filter in memory
+      const snap = await getDocs(collection(db, collectionName));
+      let results = snapshotToArray(snap);
+      for (const [field, value] of Object.entries(filters)) {
+        if (value !== undefined && value !== null) {
+          results = results.filter((d: any) => d[field] === value);
+        }
+      }
+      return results;
+    }
+  },
+
+  async create(collectionName: string, data: Record<string, any>) {
+    const payload = {
+      ...data,
+      created_date: data.created_date || new Date().toISOString(),
+      updated_date: new Date().toISOString(),
+    };
+    const colRef = collection(db, collectionName);
+    const docRef = await addDoc(colRef, payload);
+    return { id: docRef.id, ...payload };
+  },
+
+  async update(collectionName: string, id: string, data: Record<string, any>) {
+    const docRef = doc(db, collectionName, id);
+    const payload = { ...data, updated_date: new Date().toISOString() };
+    await updateDoc(docRef, payload);
+    return { id, ...payload };
+  },
+
+  async delete(collectionName: string, id: string) {
+    const docRef = doc(db, collectionName, id);
+    await deleteDoc(docRef);
+    return { id };
+  },
+
+  subscribe(collectionName: string, filters: Record<string, any>, callback: (data: any[]) => void) {
+    const colRef = collection(db, collectionName);
+    const constraints: any[] = [];
+    for (const [field, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null) {
+        constraints.push(where(field, '==', value));
+      }
+    }
+    const q = query(colRef, ...constraints);
+    return onSnapshot(q, (snap) => {
+      callback(snapshotToArray(snap));
+    });
+  },
+};
+
+// ─── Storage Helpers ──────────────────────────────────────────────────────────
+
+export const firebaseStorage = {
+  async uploadFile(file: Blob, path: string): Promise<string> {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+  },
+};

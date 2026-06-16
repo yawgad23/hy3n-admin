@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useAuth } from "@/lib/auth-context";
+import { firestoreDB } from "@/lib/firebase";
 
 const GOLD = "#D4AF37";
 const GREEN = "#006B3F";
@@ -60,9 +62,21 @@ function formatDate(iso: string) {
 }
 
 export default function WalletScreen() {
-  const [balance] = useState(152.73);
-  const [transactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  const { user, riderProfile } = useAuth();
+  const [balance, setBalance] = useState(152.73);
+  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    if (riderProfile?.wallet_balance !== undefined) setBalance(riderProfile.wallet_balance);
+  }, [riderProfile]);
+
+  useEffect(() => {
+    if (!user) return;
+    firestoreDB.list('WalletTransactions', { user_id: user.uid }, 'date', 'desc', 30)
+      .then(txns => { if (txns && txns.length > 0) setTransactions(txns as Transaction[]); })
+      .catch(() => {});
+  }, [user]);
   const [showTopUp, setShowTopUp] = useState(false);
   const [showTxDetail, setShowTxDetail] = useState(false);
   const [selectedTx, setSelectedTx] = useState<Transaction | null>(null);

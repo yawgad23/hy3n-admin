@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
+import { useAuth } from "@/lib/auth-context";
+import { firestoreDB } from "@/lib/firebase";
 
 const GOLD = "#D4AF37";
 const GREEN = "#006B3F";
@@ -81,9 +83,28 @@ function Row({ label, value, valueColor, bold }: { label: string; value: string;
 
 export default function ActivityScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"past" | "upcoming">("past");
-  const [rides] = useState<Ride[]>(MOCK_RIDES);
+  const [rides, setRides] = useState<Ride[]>(MOCK_RIDES);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingRides, setLoadingRides] = useState(false);
+
+  const loadRides = useCallback(async () => {
+    if (!user) return;
+    setLoadingRides(true);
+    try {
+      const firestoreRides = await firestoreDB.list('RideRequests', { rider_id: user.uid }, 'created_date', 'desc', 50);
+      if (firestoreRides && firestoreRides.length > 0) {
+        setRides(firestoreRides as Ride[]);
+      }
+    } catch (err) {
+      // fallback to mock data
+    } finally {
+      setLoadingRides(false);
+    }
+  }, [user]);
+
+  useEffect(() => { loadRides(); }, [loadRides]);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [showReport, setShowReport] = useState(false);

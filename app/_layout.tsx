@@ -8,6 +8,7 @@ import "react-native-reanimated";
 import { Platform, View, Image, Animated } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
+import { AuthProvider } from "@/lib/auth-context";
 import {
   SafeAreaFrameContext,
   SafeAreaInsetsContext,
@@ -165,13 +166,20 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="oauth/callback" />
-            <Stack.Screen name="safety" options={{ presentation: "modal" }} />
-          </Stack>
-          <StatusBar style="light" />
-          {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
+          <AuthProvider>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="login" />
+              <Stack.Screen name="register" />
+              <Stack.Screen name="forgot-password" />
+              <Stack.Screen name="oauth/callback" />
+              <Stack.Screen name="safety" options={{ presentation: "modal" }} />
+              <Stack.Screen name="scheduled" options={{ presentation: "modal" }} />
+              <Stack.Screen name="support" options={{ presentation: "modal" }} />
+            </Stack>
+            <StatusBar style="light" />
+            {!splashDone && <SplashScreen onComplete={() => setSplashDone(true)} />}
+          </AuthProvider>
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
