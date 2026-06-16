@@ -2,50 +2,87 @@ import { View, Text, ScrollView, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 
 export default function WalletScreen() {
+  const transactions = [
+    {
+      id: 1,
+      date: "Today, 2:30 PM",
+      type: "ride",
+      description: "Ride to Osu",
+      amount: "-GH₵ 45.50",
+      status: "completed"
+    },
+    {
+      id: 2,
+      date: "Yesterday, 6:15 PM",
+      type: "ride",
+      description: "Ride to Tema",
+      amount: "-GH₵ 62.00",
+      status: "completed"
+    },
+    {
+      id: 3,
+      date: "Dec 14, 11:45 AM",
+      type: "topup",
+      description: "Wallet Top-up",
+      amount: "+GH₵ 100.00",
+      status: "completed"
+    },
+    {
+      id: 4,
+      date: "Dec 13, 3:20 PM",
+      type: "ride",
+      description: "Ride to East Legon",
+      amount: "-GH₵ 85.00",
+      status: "completed"
+    },
+  ];
+
   return (
-    <ScreenContainer className="p-4">
-      <View className="mb-6">
-        <Text className="text-3xl font-bold text-foreground">Wallet</Text>
-        <Text className="text-sm text-muted mt-1">Manage your balance</Text>
+    <ScreenContainer className="p-0">
+      {/* Header */}
+      <View className="border-b border-border px-4 py-4 bg-background">
+        <Text className="text-2xl font-bold text-foreground">Wallet</Text>
       </View>
 
-      {/* Balance Card */}
-      <View className="bg-primary rounded-2xl p-6 mb-6">
-        <Text className="text-sm text-primary-foreground/80 mb-2">Available Balance</Text>
-        <Text className="text-4xl font-bold text-primary-foreground mb-4">GH₵234.50</Text>
-        <TouchableOpacity className="bg-primary-foreground/20 rounded-lg py-3 px-4">
-          <Text className="text-primary-foreground font-semibold text-center">Top Up Wallet</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Summary Stats */}
-      <View className="flex-row gap-3 mb-6">
-        <View className="flex-1 bg-surface border border-border rounded-xl p-4">
-          <Text className="text-xs text-muted mb-2">Total Added</Text>
-          <Text className="text-xl font-bold text-foreground">GH₵500.00</Text>
+      <ScrollView className="flex-1 p-4">
+        {/* Balance Card */}
+        <View className="bg-primary rounded-2xl p-6 mb-6">
+          <Text className="text-sm text-white/80 mb-2">Available Balance</Text>
+          <Text className="text-4xl font-bold text-white mb-4">GH₵ 245.75</Text>
+          <View className="flex-row gap-2">
+            <TouchableOpacity className="flex-1 bg-white/20 rounded-lg py-2 items-center">
+              <Text className="text-white font-semibold text-sm">Add Money</Text>
+            </TouchableOpacity>
+            <TouchableOpacity className="flex-1 bg-white/20 rounded-lg py-2 items-center">
+              <Text className="text-white font-semibold text-sm">Withdraw</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View className="flex-1 bg-surface border border-border rounded-xl p-4">
-          <Text className="text-xs text-muted mb-2">Total Spent</Text>
-          <Text className="text-xl font-bold text-foreground">GH₵265.50</Text>
-        </View>
-      </View>
 
-      {/* Transactions */}
-      <View className="mb-4">
-        <Text className="text-sm font-semibold text-foreground mb-3">Recent Transactions</Text>
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="gap-2">
-          {[1, 2, 3].map((i) => (
-            <View key={i} className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-              <View className="flex-1">
-                <Text className="text-sm font-semibold text-foreground">Ride to Adabraka</Text>
-                <Text className="text-xs text-muted mt-1">Today, 2:30 PM</Text>
-              </View>
-              <Text className="text-sm font-bold text-foreground">-GH₵45.50</Text>
-            </View>
-          ))}
+        {/* Transaction History */}
+        <View className="mb-4">
+          <Text className="text-sm font-semibold text-foreground mb-3">Transaction History</Text>
+          <View className="gap-2">
+            {transactions.map((tx) => (
+              <TouchableOpacity
+                key={tx.id}
+                className="bg-surface border border-border rounded-xl p-4 flex-row items-center justify-between"
+              >
+                <View className="flex-row items-center gap-3 flex-1">
+                  <View className="w-10 h-10 rounded-full bg-primary/20 items-center justify-center">
+                    <Text className="text-lg">{tx.type === "ride" ? "🚗" : "💳"}</Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-sm font-medium text-foreground">{tx.description}</Text>
+                    <Text className="text-xs text-muted">{tx.date}</Text>
+                  </View>
+                </View>
+                <Text className={`text-sm font-semibold ${tx.type === "ride" ? "text-error" : "text-success"}`}>
+                  {tx.amount}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </ScrollView>
     </ScreenContainer>
