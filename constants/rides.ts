@@ -80,10 +80,10 @@ export const RIDE_CATEGORIES: RideCategory[] = [
 export const FREE_WAITING_MINUTES = 3;
 
 export const PAYMENT_METHODS = [
-  { id: "cash", name: "Cash", icon: "Banknote" },
-  { id: "mobile_money", name: "MoMo", icon: "Smartphone" },
-  { id: "wallet", name: "Wallet", icon: "Wallet" },
-  { id: "card", name: "Card", icon: "CreditCard" },
+  { id: "cash", name: "Cash", icon: "payments" },
+  { id: "mobile_money", name: "MoMo", icon: "phone-android" },
+  { id: "wallet", name: "Wallet", icon: "account-balance-wallet" },
+  { id: "card", name: "Card", icon: "credit-card" },
 ];
 
 export const POPULAR_DESTINATIONS = [
