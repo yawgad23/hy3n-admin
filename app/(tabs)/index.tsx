@@ -14,8 +14,7 @@ import {
   Share,
   Linking,
 } from "react-native";
-// react-native-maps removed — not compatible with Expo Go
-// Using custom animated map background instead
+import LeafletMap from "@/components/LeafletMap";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Constants from "expo-constants";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -100,8 +99,9 @@ const MOCK_DRIVERS = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  // Ensure header never overlaps the status bar — use the larger of safe area inset or statusBarHeight
-  const safeTop = Math.max(insets.top, Constants.statusBarHeight ?? 0);
+  // Use the safe area top inset directly — on iOS this is the full notch/Dynamic Island height
+  // Add 0 extra padding since insets.top already includes the status bar height
+  const safeTop = insets.top > 0 ? insets.top : (Constants.statusBarHeight ?? 44);
   // No map ref needed — using pure RN animated background
   const [userLocation] = useState<[number, number]>(DEFAULT_LOCATION);
   const [destination, setDestination] = useState<Location | null>(null);
@@ -786,38 +786,22 @@ export default function HomeScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
-      {/* Map Background — pure React Native, works on Expo Go, web, and production */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#0D1117", overflow: "hidden" }}>
-        {/* Grid lines simulating a dark map */}
-        {Array.from({ length: 18 }).map((_, i) => (
-          <View key={"h" + i} style={{ position: "absolute", left: 0, right: 0, top: (i / 18) * SCREEN_HEIGHT, height: 0.5, backgroundColor: "#1A2030" }} />
-        ))}
-        {Array.from({ length: 10 }).map((_, i) => (
-          <View key={"v" + i} style={{ position: "absolute", top: 0, bottom: 0, left: (i / 10) * SCREEN_WIDTH, width: 0.5, backgroundColor: "#1A2030" }} />
-        ))}
-        {/* Road lines */}
-        <View style={{ position: "absolute", top: "30%", left: 0, right: 0, height: 3, backgroundColor: "#1E2A1E" }} />
-        <View style={{ position: "absolute", top: "55%", left: 0, right: 0, height: 5, backgroundColor: "#1E2A1E" }} />
-        <View style={{ position: "absolute", left: "35%", top: 0, bottom: 0, width: 4, backgroundColor: "#1E2A1E" }} />
-        <View style={{ position: "absolute", left: "65%", top: 0, bottom: 0, width: 2, backgroundColor: "#1E2A1E" }} />
-        {/* Accent road (green tint for Ghana) */}
-        <View style={{ position: "absolute", top: "42%", left: 0, right: 0, height: 2, backgroundColor: "#0D2A1A" }} />
-        {/* Location dot */}
-        <View style={{ position: "absolute", top: "45%", left: "48%", width: 16, height: 16, borderRadius: 8, backgroundColor: GREEN, borderWidth: 3, borderColor: "#fff", shadowColor: GREEN, shadowOpacity: 0.8, shadowRadius: 8 }} />
-        {/* Destination dot (shown when destination selected) */}
-        {destination && (
-          <View style={{ position: "absolute", top: "25%", left: "60%", width: 16, height: 16, borderRadius: 8, backgroundColor: GOLD, borderWidth: 3, borderColor: "#fff" }} />
-        )}
-        {/* Route line (shown when destination selected) */}
-        {destination && (
-          <View style={{ position: "absolute", top: "26%", left: "52%", width: 80, height: 2, backgroundColor: GOLD, transform: [{ rotate: "30deg" }] }} />
-        )}
-        {/* Accra label */}
-        <Text style={{ position: "absolute", top: "38%", left: "42%", color: "#2A3A2A", fontSize: 11, fontWeight: "600", letterSpacing: 2 }}>ACCRA</Text>
-      </View>
+      {/* Real map using Leaflet + OpenStreetMap dark tiles — works on Expo Go, web, and production */}
+      <LeafletMap
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        center={userLocation}
+        zoom={14}
+        userLocation={userLocation}
+        destination={destination ? [destination.lat, destination.lng] : null}
+        driverLocation={
+          activeRide && (activeRide.status === "matched" || activeRide.status === "driver_arriving")
+            ? [userLocation[0] + 0.008, userLocation[1] - 0.005]
+            : null
+        }
+      />
 
       {/* Header */}
-      <View style={{ position: "absolute", top: safeTop + 12, left: 16, right: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
+      <View style={{ position: "absolute", top: safeTop + 4, left: 16, right: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: GOLD, alignItems: "center", justifyContent: "center" }}>
             <Text style={{ color: "#000", fontWeight: "bold", fontSize: 14 }}>H</Text>
