@@ -50,9 +50,10 @@ export default function TabLayout() {
           borderTopWidth: 0.5,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: "500",
-          marginTop: 0,
+          marginTop: 4,
+          marginBottom: 0,
         },
       }}
     >
