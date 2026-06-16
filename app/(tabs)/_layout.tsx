@@ -32,8 +32,8 @@ function TabBarIcon({ name, color, focused }: TabBarIconProps) {
 export default function TabLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const bottomPadding = Math.max(insets.bottom, 8);
-  const tabBarHeight = 56 + bottomPadding;
+  const bottomPadding = Math.max(insets.bottom, 12);
+  const tabBarHeight = 70 + bottomPadding;
 
   return (
     <Tabs
@@ -42,7 +42,7 @@ export default function TabLayout() {
         tabBarInactiveTintColor: "#9CA3AF",
         headerShown: false,
         tabBarStyle: {
-          paddingTop: 8,
+          paddingTop: 10,
           paddingBottom: bottomPadding,
           height: tabBarHeight,
           backgroundColor: "#111111",
@@ -50,9 +50,11 @@ export default function TabLayout() {
           borderTopWidth: 0.5,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: "500",
           marginTop: 4,
+        },
+        tabBarIconStyle: {
           marginBottom: 0,
         },
       }}
