@@ -36,19 +36,27 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="history"
+        name="activity"
         options={{
-          title: "History",
+          title: "Activity",
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="clock.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="wallet"
         options={{
-          title: "Profile",
+          title: "Wallet",
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="wallet.pass.fill" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="account"
+        options={{
+          title: "Account",
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="person.fill" color={color} />,
         }}
       />
+
     </Tabs>
   );
 }

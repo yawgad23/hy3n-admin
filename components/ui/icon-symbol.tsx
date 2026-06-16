@@ -19,6 +19,7 @@ const MAPPING = {
   "chevron.left.forwardslash.chevron.right": "code",
   "chevron.right": "chevron-right",
   "clock.fill": "history",
+  "wallet.pass.fill": "wallet",
   "person.fill": "person",
 } as IconMapping;
 
