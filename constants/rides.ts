@@ -1,5 +1,6 @@
 /**
- * Ride categories - EXACT from web app
+ * Ride categories - EXACT from web app constants.js
+ * Updated June 2026 - 10% fare increase
  */
 
 export interface RideCategory {
@@ -9,9 +10,10 @@ export interface RideCategory {
   basePrice: number;
   pricePerKm: number;
   pricePerMin: number;
+  waitingFeePerMin: number;
   minFare: number;
+  seats: number;
   icon: string;
-  color?: string;
 }
 
 export const RIDE_CATEGORIES: RideCategory[] = [
@@ -22,8 +24,10 @@ export const RIDE_CATEGORIES: RideCategory[] = [
     basePrice: 11.00,
     pricePerKm: 4.18,
     pricePerMin: 0.44,
+    waitingFeePerMin: 0.55,
     minFare: 16.50,
-    icon: "car",
+    seats: 4,
+    icon: "directions-car",
   },
   {
     id: "comfort",
@@ -32,7 +36,9 @@ export const RIDE_CATEGORIES: RideCategory[] = [
     basePrice: 16.50,
     pricePerKm: 5.06,
     pricePerMin: 0.66,
+    waitingFeePerMin: 0.88,
     minFare: 27.50,
+    seats: 4,
     icon: "star",
   },
   {
@@ -42,8 +48,10 @@ export const RIDE_CATEGORIES: RideCategory[] = [
     basePrice: 13.20,
     pricePerKm: 4.62,
     pricePerMin: 0.55,
+    waitingFeePerMin: 0.66,
     minFare: 22.00,
-    icon: "car",
+    seats: 4,
+    icon: "directions-car",
   },
   {
     id: "executive",
@@ -52,8 +60,10 @@ export const RIDE_CATEGORIES: RideCategory[] = [
     basePrice: 27.50,
     pricePerKm: 6.60,
     pricePerMin: 1.10,
+    waitingFeePerMin: 1.65,
     minFare: 44.00,
-    icon: "shield-check",
+    seats: 4,
+    icon: "verified-user",
   },
   {
     id: "okada",
@@ -62,8 +72,10 @@ export const RIDE_CATEGORIES: RideCategory[] = [
     basePrice: 5.50,
     pricePerKm: 1.65,
     pricePerMin: 0.33,
+    waitingFeePerMin: 0.33,
     minFare: 8.80,
-    icon: "bike",
+    seats: 1,
+    icon: "two-wheeler",
   },
   {
     id: "express_delivery",
@@ -72,18 +84,20 @@ export const RIDE_CATEGORIES: RideCategory[] = [
     basePrice: 16.50,
     pricePerKm: 2.20,
     pricePerMin: 0.55,
+    waitingFeePerMin: 0.55,
     minFare: 22.00,
-    icon: "package",
+    seats: 0,
+    icon: "inventory",
   }
 ];
 
 export const FREE_WAITING_MINUTES = 3;
 
 export const PAYMENT_METHODS = [
-  { id: "cash", name: "Cash", icon: "payments" },
-  { id: "mobile_money", name: "MoMo", icon: "phone-android" },
-  { id: "wallet", name: "Wallet", icon: "account-balance-wallet" },
-  { id: "card", name: "Card", icon: "credit-card" },
+  { id: "cash", name: "Cash", icon: "payments" as const },
+  { id: "mobile_money", name: "MoMo", icon: "phone-android" as const },
+  { id: "wallet", name: "Wallet", icon: "account-balance-wallet" as const },
+  { id: "card", name: "Card", icon: "credit-card" as const },
 ];
 
 export const POPULAR_DESTINATIONS = [
@@ -95,7 +109,19 @@ export const POPULAR_DESTINATIONS = [
   { name: "Tema Station", address: "Accra Central", lat: 5.5502, lng: -0.2069 },
   { name: "West Hills Mall", address: "Weija, Accra", lat: 5.5752, lng: -0.3169 },
   { name: "Achimota Mall", address: "Achimota, Accra", lat: 5.6252, lng: -0.2269 },
+  { name: "Makola Market", address: "Accra Central", lat: 5.5502, lng: -0.2169 },
+  { name: "Cantonments", address: "Cantonments, Accra", lat: 5.5752, lng: -0.1769 },
+  { name: "East Legon", address: "East Legon, Accra", lat: 5.6402, lng: -0.1469 },
+  { name: "Dansoman", address: "Dansoman, Accra", lat: 5.5552, lng: -0.2469 },
 ];
+
+export const PROMO_CODES: Record<string, { type: "percent" | "fixed"; value: number; maxDiscount?: number }> = {
+  FIRSTRIDE: { type: "percent", value: 50, maxDiscount: 20 },
+  HY3N10: { type: "percent", value: 10 },
+  FREERIDE: { type: "fixed", value: 30 },
+  WELCOME: { type: "percent", value: 20, maxDiscount: 15 },
+  WEEKEND: { type: "percent", value: 15 },
+};
 
 export function calculateFare(
   categoryId: string,
@@ -113,6 +139,16 @@ export function calculateFare(
   const final = Math.max(withSurge, category.minFare);
   
   return parseFloat(final.toFixed(2));
+}
+
+export function calculateDiscount(code: string, fare: number): number {
+  const promo = PROMO_CODES[code.toUpperCase()];
+  if (!promo) return 0;
+  if (promo.type === "percent") {
+    const discount = fare * (promo.value / 100);
+    return promo.maxDiscount ? Math.min(discount, promo.maxDiscount) : discount;
+  }
+  return Math.min(promo.value, fare);
 }
 
 export function getFareBreakdown(

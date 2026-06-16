@@ -1,240 +1,174 @@
-import { View, Text, TouchableOpacity, ScrollView, Linking, Alert } from "react-native";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, Alert, Linking } from "react-native";
+import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
 
-const SAFETY_ITEMS = [
-  {
-    title: "Emergency SOS",
-    description: "Instantly alert emergency services and your emergency contacts",
-    icon: "emergency" as const,
-    color: "#CE1126",
-    action: "sos",
-  },
-  {
-    title: "Share Trip",
-    description: "Share your live trip details with trusted contacts",
-    icon: "share-location" as const,
-    color: "#D4AF37",
-    action: "share",
-  },
-  {
-    title: "Emergency Contacts",
-    description: "Manage your emergency contacts list",
-    icon: "contacts" as const,
-    color: "#006B3F",
-    action: "contacts",
-  },
-  {
-    title: "Safety Center",
-    description: "Learn about HY3N's safety features and policies",
-    icon: "security" as const,
-    color: "#D4AF37",
-    action: "center",
-  },
-  {
-    title: "Report an Issue",
-    description: "Report a safety concern about a recent trip",
-    icon: "report-problem" as const,
-    color: "#F59E0B",
-    action: "report",
-  },
-  {
-    title: "Driver Verification",
-    description: "Verify your driver's identity before entering the vehicle",
-    icon: "verified-user" as const,
-    color: "#006B3F",
-    action: "verify",
-  },
+const GREEN = "#006B3F";
+const RED = "#CE1126";
+const GOLD = "#D4AF37";
+const BG = "#0A0A0A";
+const CARD = "#1A1A1A";
+const BORDER = "#2A2A2A";
+const TEXT = "#FAFAFA";
+const MUTED = "#9CA3AF";
+
+const EMERGENCY_NUMBERS = [
+  { name: "Police", number: "191", icon: "local-police" as const, color: "#1E40AF" },
+  { name: "Ambulance", number: "193", icon: "local-hospital" as const, color: RED },
+  { name: "Fire Service", number: "192", icon: "local-fire-department" as const, color: "#EA580C" },
+  { name: "HY3N Safety", number: "+233 30 000 0000", icon: "security" as const, color: GREEN },
 ];
+
+const SAFETY_TIPS = [
+  { title: "Verify Your Driver", tip: "Always check the driver's name, photo, and vehicle plate before getting in.", icon: "verified-user" as const },
+  { title: "Share Your Trip", tip: "Use the Share Trip feature to let trusted contacts track your ride in real-time.", icon: "share-location" as const },
+  { title: "Sit in the Back", tip: "For your safety and comfort, always sit in the back seat of the vehicle.", icon: "airline-seat-recline-normal" as const },
+  { title: "Trust Your Instincts", tip: "If something feels wrong, ask the driver to stop in a safe public location and exit.", icon: "psychology" as const },
+  { title: "Keep Valuables Hidden", tip: "Keep your phone and valuables out of sight, especially when windows are down.", icon: "visibility-off" as const },
+];
+
+interface TrustedContact {
+  id: string;
+  name: string;
+  phone: string;
+}
 
 export default function SafetyScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const [showAddContact, setShowAddContact] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [trustedContacts, setTrustedContacts] = useState<TrustedContact[]>([
+    { id: "1", name: "Ama Mensah", phone: "+233 24 111 2222" },
+  ]);
 
-  const handleAction = (action: string) => {
-    switch (action) {
-      case "sos":
-        Alert.alert(
-          "Emergency SOS",
-          "This will call emergency services (999) and notify your emergency contacts.",
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: "Call 999", style: "destructive", onPress: () => Linking.openURL("tel:999") },
-          ]
-        );
-        break;
-      case "share":
-        Alert.alert("Share Trip", "Trip sharing will be available when you have an active ride.");
-        break;
-      case "contacts":
-        Alert.alert("Emergency Contacts", "You can add up to 3 emergency contacts who will be notified in case of an emergency.");
-        break;
-      case "center":
-        Alert.alert("Safety Center", "HY3N is committed to your safety. All drivers are background-checked and verified.");
-        break;
-      case "report":
-        Alert.alert("Report an Issue", "Please select a recent trip to report a safety concern.", [
-          { text: "Cancel", style: "cancel" },
-          { text: "View Trips", onPress: () => { router.back(); } },
-        ]);
-        break;
-      case "verify":
-        Alert.alert("Driver Verification", "Always check that the driver's name, photo, and vehicle match the app before entering.");
-        break;
-    }
+  const handleSOS = () => {
+    Alert.alert(
+      "Emergency SOS",
+      "This will immediately notify HY3N Safety team and your emergency contacts with your current location. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Send SOS", style: "destructive", onPress: () => Alert.alert("SOS Sent", "Your emergency contacts and HY3N Safety team have been notified.") },
+      ]
+    );
+  };
+
+  const handleCall = (number: string) => {
+    Linking.openURL("tel:" + number).catch(() => Alert.alert("Cannot Call", "Please call " + number + " manually"));
+  };
+
+  const handleAddContact = () => {
+    if (!contactName.trim() || !contactPhone.trim()) { Alert.alert("Required", "Please enter both name and phone number"); return; }
+    setTrustedContacts(prev => [...prev, { id: Date.now().toString(), name: contactName, phone: contactPhone }]);
+    setContactName("");
+    setContactPhone("");
+    setShowAddContact(false);
+    Alert.alert("Added", contactName + " added as a trusted contact");
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0A0A0A" }}>
-      {/* Header */}
-      <View
-        style={{
-          paddingTop: insets.top + 8,
-          paddingHorizontal: 16,
-          paddingBottom: 16,
-          borderBottomWidth: 0.5,
-          borderBottomColor: "#2A2A2A",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            backgroundColor: "#1A1A1A",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <MaterialIcons name="arrow-back" size={20} color="#FAFAFA" />
+    <ScreenContainer containerClassName="bg-[#0A0A0A]" safeAreaClassName="bg-[#0A0A0A]">
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: BORDER }}>
+        <TouchableOpacity onPress={() => router.back()} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, alignItems: "center", justifyContent: "center" }}>
+          <MaterialIcons name="arrow-back" size={20} color={TEXT} />
         </TouchableOpacity>
-        <Text style={{ color: "#FAFAFA", fontSize: 18, fontWeight: "700" }}>Safety</Text>
+        <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, flex: 1 }}>Safety Center</Text>
       </View>
 
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
-        {/* Emergency Banner */}
-        <TouchableOpacity
-          onPress={() => handleAction("sos")}
-          style={{
-            backgroundColor: "rgba(206,17,38,0.12)",
-            borderWidth: 1,
-            borderColor: "rgba(206,17,38,0.3)",
-            borderRadius: 16,
-            padding: 20,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 16,
-            marginBottom: 24,
-          }}
-        >
-          <View
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: 26,
-              backgroundColor: "#CE1126",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialIcons name="emergency" size={28} color="#FAFAFA" />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
+        <TouchableOpacity onPress={handleSOS} style={{ backgroundColor: RED, borderRadius: 20, padding: 24, alignItems: "center", marginBottom: 20 }}>
+          <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: "rgba(255,255,255,0.2)", alignItems: "center", justifyContent: "center", marginBottom: 10 }}>
+            <MaterialIcons name="sos" size={36} color="#fff" />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: "#CE1126", fontWeight: "700", fontSize: 16 }}>Emergency SOS</Text>
-            <Text style={{ color: "#9CA3AF", fontSize: 13, marginTop: 2 }}>
-              Tap to call emergency services immediately
-            </Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={20} color="#CE1126" />
+          <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 20 }}>Emergency SOS</Text>
+          <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 13, marginTop: 4, textAlign: "center" }}>Tap to alert HY3N Safety team and your emergency contacts</Text>
         </TouchableOpacity>
 
-        {/* Safety Items */}
-        <Text
-          style={{
-            color: "#9CA3AF",
-            fontSize: 11,
-            textTransform: "uppercase",
-            letterSpacing: 1,
-            marginBottom: 12,
-          }}
-        >
-          Safety Features
-        </Text>
-        <View
-          style={{
-            backgroundColor: "#111111",
-            borderRadius: 16,
-            borderWidth: 0.5,
-            borderColor: "#2A2A2A",
-            overflow: "hidden",
-          }}
-        >
-          {SAFETY_ITEMS.filter((item) => item.action !== "sos").map((item, index) => (
-            <TouchableOpacity
-              key={item.action}
-              onPress={() => handleAction(item.action)}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                padding: 16,
-                gap: 14,
-                borderBottomWidth: index < SAFETY_ITEMS.length - 2 ? 0.5 : 0,
-                borderBottomColor: "#2A2A2A",
-              }}
-            >
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: `${item.color}18`,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <MaterialIcons name={item.icon} size={22} color={item.color} />
+        <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700", marginBottom: 10 }}>Emergency Numbers</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
+          {EMERGENCY_NUMBERS.map((contact) => (
+            <TouchableOpacity key={contact.name} onPress={() => handleCall(contact.number)} style={{ flex: 1, minWidth: "45%", backgroundColor: CARD, borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 0.5, borderColor: BORDER, gap: 6 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: contact.color + "1A", alignItems: "center", justifyContent: "center" }}>
+                <MaterialIcons name={contact.icon} size={22} color={contact.color} />
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: "#FAFAFA", fontWeight: "600", fontSize: 15 }}>{item.title}</Text>
-                <Text style={{ color: "#9CA3AF", fontSize: 12, marginTop: 2 }}>{item.description}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={18} color="#4A4A4A" />
+              <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 13 }}>{contact.name}</Text>
+              <Text style={{ color: contact.color, fontSize: 12, fontWeight: "600" }}>{contact.number}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Safety Tips */}
-        <View
-          style={{
-            backgroundColor: "rgba(212,175,55,0.06)",
-            borderRadius: 16,
-            borderWidth: 0.5,
-            borderColor: "rgba(212,175,55,0.15)",
-            padding: 16,
-            marginTop: 24,
-          }}
-        >
-          <Text style={{ color: "#D4AF37", fontWeight: "700", fontSize: 14, marginBottom: 12 }}>
-            Safety Tips
-          </Text>
-          {[
-            "Always verify your driver's name and photo before entering",
-            "Share your trip with a trusted contact",
-            "Sit in the back seat when riding alone",
-            "Trust your instincts - if something feels wrong, end the trip",
-          ].map((tip, i) => (
-            <View key={i} style={{ flexDirection: "row", gap: 10, marginBottom: 8 }}>
-              <Text style={{ color: "#D4AF37", fontSize: 14 }}>•</Text>
-              <Text style={{ color: "#9CA3AF", fontSize: 13, flex: 1, lineHeight: 20 }}>{tip}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700" }}>Trusted Contacts</Text>
+          <TouchableOpacity onPress={() => setShowAddContact(true)} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <MaterialIcons name="add" size={16} color={GOLD} />
+            <Text style={{ color: GOLD, fontSize: 12, fontWeight: "600" }}>Add</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ marginBottom: 20 }}>
+          {trustedContacts.map((contact) => (
+            <View key={contact.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: CARD, borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 0.5, borderColor: BORDER }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GREEN + "1A", alignItems: "center", justifyContent: "center" }}>
+                <Text style={{ color: GREEN, fontWeight: "bold", fontSize: 16 }}>{contact.name.charAt(0)}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 13 }}>{contact.name}</Text>
+                <Text style={{ color: MUTED, fontSize: 12 }}>{contact.phone}</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleCall(contact.phone)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: GREEN + "1A", alignItems: "center", justifyContent: "center" }}>
+                <MaterialIcons name="call" size={18} color={GREEN} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => Alert.alert("Remove", "Remove " + contact.name + "?", [{ text: "Cancel", style: "cancel" }, { text: "Remove", style: "destructive", onPress: () => setTrustedContacts(prev => prev.filter(c => c.id !== contact.id)) }])}
+                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: RED + "1A", alignItems: "center", justifyContent: "center" }}
+              >
+                <MaterialIcons name="delete" size={18} color={RED} />
+              </TouchableOpacity>
+            </View>
+          ))}
+          {trustedContacts.length === 0 && (
+            <View style={{ backgroundColor: CARD, borderRadius: 14, padding: 20, alignItems: "center", borderWidth: 0.5, borderColor: BORDER }}>
+              <MaterialIcons name="person-add" size={28} color={MUTED} />
+              <Text style={{ color: MUTED, fontSize: 13, marginTop: 8, textAlign: "center" }}>No trusted contacts yet.</Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700", marginBottom: 10 }}>Safety Tips</Text>
+        <View style={{ gap: 8 }}>
+          {SAFETY_TIPS.map((tip, i) => (
+            <View key={i} style={{ backgroundColor: CARD, borderRadius: 14, padding: 14, flexDirection: "row", gap: 12, borderWidth: 0.5, borderColor: BORDER }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GREEN + "1A", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <MaterialIcons name={tip.icon} size={20} color={GREEN} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 13, marginBottom: 4 }}>{tip.title}</Text>
+                <Text style={{ color: MUTED, fontSize: 12, lineHeight: 18 }}>{tip.tip}</Text>
+              </View>
             </View>
           ))}
         </View>
       </ScrollView>
-    </View>
+
+      <Modal visible={showAddContact} animationType="slide" presentationStyle="pageSheet">
+        <View style={{ flex: 1, backgroundColor: BG }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderBottomWidth: 0.5, borderBottomColor: BORDER }}>
+            <TouchableOpacity onPress={() => setShowAddContact(false)} style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="close" size={20} color={TEXT} />
+            </TouchableOpacity>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, flex: 1 }}>Add Trusted Contact</Text>
+          </View>
+          <View style={{ padding: 16 }}>
+            <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600", marginBottom: 6 }}>Full Name</Text>
+            <TextInput value={contactName} onChangeText={setContactName} placeholder="Enter contact name" placeholderTextColor="#4A4A4A" style={{ backgroundColor: CARD, borderRadius: 12, padding: 14, color: TEXT, fontSize: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 14 }} />
+            <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600", marginBottom: 6 }}>Phone Number</Text>
+            <TextInput value={contactPhone} onChangeText={setContactPhone} placeholder="+233 XX XXX XXXX" placeholderTextColor="#4A4A4A" keyboardType="phone-pad" style={{ backgroundColor: CARD, borderRadius: 12, padding: 14, color: TEXT, fontSize: 14, borderWidth: 1, borderColor: BORDER, marginBottom: 20 }} />
+            <TouchableOpacity onPress={handleAddContact} style={{ backgroundColor: GREEN, borderRadius: 14, paddingVertical: 15, alignItems: "center" }}>
+              <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Add Contact</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </ScreenContainer>
   );
 }

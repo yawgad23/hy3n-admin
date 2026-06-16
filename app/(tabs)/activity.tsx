@@ -1,311 +1,437 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
+  FlatList,
   Modal,
-  Alert,
+  ScrollView,
   RefreshControl,
+  Alert,
+  TextInput,
+  ActivityIndicator,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
 
-interface Trip {
+const GOLD = "#D4AF37";
+const GREEN = "#006B3F";
+const RED = "#CE1126";
+const BG = "#0A0A0A";
+const SURFACE = "#111111";
+const CARD = "#1A1A1A";
+const BORDER = "#2A2A2A";
+const TEXT = "#FAFAFA";
+const MUTED = "#9CA3AF";
+
+interface Ride {
   id: string;
-  date: string;
-  time: string;
-  from: string;
-  to: string;
+  status: "completed" | "cancelled" | "upcoming";
   category: string;
-  fare: number;
+  destination_address: string;
+  pickup_address: string;
   distance: number;
   duration: number;
-  status: "completed" | "cancelled" | "scheduled";
-  rating?: number;
-  driver?: string;
+  fare: number;
   payment: string;
+  driver_name?: string;
+  driver_rating?: number;
+  driver_vehicle?: string;
+  driver_plate?: string;
+  rider_rating?: number;
+  tip?: number;
+  waiting_fee?: number;
+  created_date: string;
+  scheduled_for?: string;
+  promo_code?: string;
+  discount?: number;
 }
 
-const PAST_TRIPS: Trip[] = [
-  {
-    id: "1", date: "Today", time: "10:45 AM",
-    from: "Nmai Dzorm", to: "Kotoka International Airport",
-    category: "Comfort", fare: 85.50, distance: 14.2, duration: 28,
-    status: "completed", rating: 5, driver: "Kwame A.", payment: "Cash",
-  },
-  {
-    id: "2", date: "Yesterday", time: "3:20 PM",
-    from: "Accra Mall", to: "Osu Oxford Street",
-    category: "Standard", fare: 32.00, distance: 5.8, duration: 18,
-    status: "completed", rating: 4, driver: "Ama K.", payment: "MoMo",
-  },
-  {
-    id: "3", date: "Jun 14", time: "8:10 AM",
-    from: "University of Ghana", to: "Tema Station",
-    category: "Kantanka", fare: 55.20, distance: 9.4, duration: 22,
-    status: "completed", rating: 5, driver: "Kofi M.", payment: "Wallet",
-  },
-  {
-    id: "4", date: "Jun 12", time: "6:30 PM",
-    from: "Labadi Beach", to: "West Hills Mall",
-    category: "Executive", fare: 120.00, distance: 18.5, duration: 42,
-    status: "cancelled", payment: "Cash",
-  },
-  {
-    id: "5", date: "Jun 10", time: "11:00 AM",
-    from: "Achimota Mall", to: "Accra Mall",
-    category: "Okada", fare: 18.80, distance: 4.2, duration: 12,
-    status: "completed", rating: 4, driver: "Yaw B.", payment: "Cash",
-  },
+const MOCK_RIDES: Ride[] = [
+  { id: "r1", status: "completed", category: "Standard", destination_address: "Kotoka International Airport, Airport Rd", pickup_address: "Osu, Accra", distance: 8.2, duration: 22, fare: 50.34, payment: "MoMo", driver_name: "Kwame Asante", driver_rating: 4.9, driver_vehicle: "Toyota Camry (White)", driver_plate: "GR 1234-24", rider_rating: 5, tip: 5, created_date: new Date(Date.now() - 2 * 3600000).toISOString() },
+  { id: "r2", status: "completed", category: "Comfort", destination_address: "Accra Mall, Tetteh Quarshie", pickup_address: "East Legon, Accra", distance: 5.1, duration: 15, fare: 47.49, payment: "Wallet", driver_name: "Ama Owusu", driver_rating: 4.8, driver_vehicle: "Hyundai Sonata (Silver)", driver_plate: "GR 5678-23", rider_rating: 4, created_date: new Date(Date.now() - 86400000).toISOString(), promo_code: "HY3N10", discount: 4.75 },
+  { id: "r3", status: "cancelled", category: "Okada", destination_address: "Osu Oxford Street, Osu", pickup_address: "Cantonments, Accra", distance: 2.3, duration: 8, fare: 12.50, payment: "Cash", created_date: new Date(Date.now() - 3 * 86400000).toISOString() },
+  { id: "r4", status: "completed", category: "Executive", destination_address: "Labadi Beach, La, Accra", pickup_address: "Airport Residential", distance: 7.8, duration: 25, fare: 99.28, payment: "Card", driver_name: "Kofi Mensah", driver_rating: 4.7, driver_vehicle: "Mercedes C-Class (Black)", driver_plate: "GR 9012-24", rider_rating: 5, tip: 10, created_date: new Date(Date.now() - 5 * 86400000).toISOString() },
+  { id: "r5", status: "upcoming", category: "Standard", destination_address: "University of Ghana, Legon", pickup_address: "Current Location", distance: 4.5, duration: 14, fare: 34.70, payment: "Cash", scheduled_for: "Tomorrow at 8:00 AM", created_date: new Date(Date.now() + 43200000).toISOString() },
+  { id: "r6", status: "completed", category: "Kantanka", destination_address: "West Hills Mall, Weija", pickup_address: "Dansoman, Accra", distance: 6.2, duration: 20, fare: 42.84, payment: "MoMo", driver_name: "Yaa Mensah", driver_rating: 4.6, driver_vehicle: "Kantanka Onantefo (Silver)", driver_plate: "GR 3456-24", rider_rating: 4, created_date: new Date(Date.now() - 7 * 86400000).toISOString() },
 ];
 
-const UPCOMING_TRIPS: Trip[] = [
-  {
-    id: "6", date: "Jun 17", time: "8:00 AM",
-    from: "Accra Central", to: "Kotoka International Airport",
-    category: "Executive", fare: 120.00, distance: 15.3, duration: 40,
-    status: "scheduled", payment: "Mobile Money",
-  },
-];
+const STATUS_COLORS: Record<string, string> = { completed: GREEN, cancelled: RED, upcoming: GOLD };
+const REPORT_ISSUES = ["Driver was rude", "Wrong route taken", "Vehicle not clean", "Driver was late", "Overcharged", "Lost item in vehicle", "Safety concern", "Other"];
+
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  const diff = Date.now() - d.getTime();
+  const hours = diff / 3600000;
+  if (hours < 1) return "Just now";
+  if (hours < 24) return `${Math.floor(hours)}h ago`;
+  if (hours < 48) return "Yesterday";
+  return d.toLocaleDateString("en-GH", { month: "short", day: "numeric" });
+}
+
+function Row({ label, value, valueColor, bold }: { label: string; value: string; valueColor?: string; bold?: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+      <Text style={{ color: MUTED, fontSize: 12 }}>{label}</Text>
+      <Text style={{ color: valueColor || TEXT, fontSize: 12, fontWeight: bold ? "bold" : "600" }}>{value}</Text>
+    </View>
+  );
+}
 
 export default function ActivityScreen() {
-  const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("past");
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<"past" | "upcoming">("past");
+  const [rides] = useState<Ride[]>(MOCK_RIDES);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportRide, setReportRide] = useState<Ride | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<string | null>(null);
+  const [reportNote, setReportNote] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportSubmitted, setReportSubmitted] = useState(false);
 
-  const trips = activeTab === "upcoming" ? UPCOMING_TRIPS : PAST_TRIPS;
+  const pastRides = rides.filter(r => r.status !== "upcoming");
+  const upcomingRides = rides.filter(r => r.status === "upcoming");
+  const displayedRides = activeTab === "past" ? pastRides : upcomingRides;
 
-  const handleRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await new Promise((r) => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1200));
     setRefreshing(false);
-  };
+  }, []);
 
-  const renderStars = (rating?: number) => {
-    if (!rating) return null;
-    return (
-      <View style={{ flexDirection: "row", gap: 2 }}>
-        {[1, 2, 3, 4, 5].map((s) => (
-          <MaterialIcons key={s} name="star" size={12} color={s <= rating ? "#D4AF37" : "#2A2A2A"} />
-        ))}
-      </View>
-    );
+  const handleSubmitReport = async () => {
+    if (!selectedIssue) { Alert.alert("Required", "Please select an issue type"); return; }
+    setReportSubmitting(true);
+    await new Promise(r => setTimeout(r, 1500));
+    setReportSubmitting(false);
+    setReportSubmitted(true);
   };
-
-  const statusColor = (s: Trip["status"]) =>
-    s === "completed" ? "#006B3F" : s === "cancelled" ? "#CE1126" : "#D4AF37";
-  const statusBg = (s: Trip["status"]) =>
-    s === "completed" ? "rgba(0,107,63,0.12)" : s === "cancelled" ? "rgba(206,17,38,0.12)" : "rgba(212,175,55,0.12)";
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#0A0A0A" }}>
-      {/* Header */}
-      <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: 0.5, borderBottomColor: "#2A2A2A", flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: "#D4AF37", alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: "#000", fontWeight: "bold", fontSize: 13 }}>H</Text>
-        </View>
-        <Text style={{ color: "#FAFAFA", fontWeight: "bold", fontSize: 20, flex: 1 }}>Activity</Text>
+    <ScreenContainer containerClassName="bg-[#0A0A0A]" safeAreaClassName="bg-[#0A0A0A]">
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, borderBottomWidth: 0.5, borderBottomColor: BORDER }}>
+        <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 22 }}>Activity</Text>
+        <Text style={{ color: MUTED, fontSize: 13, marginTop: 2 }}>Your ride history</Text>
       </View>
-
-      {/* Tabs - Upcoming / Past */}
-      <View style={{ flexDirection: "row", backgroundColor: "#0A0A0A", borderBottomWidth: 0.5, borderBottomColor: "#2A2A2A" }}>
-        {(["upcoming", "past"] as const).map((tab) => (
+      <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingVertical: 12, gap: 8 }}>
+        {(["past", "upcoming"] as const).map((tab) => (
           <TouchableOpacity
             key={tab}
             onPress={() => setActiveTab(tab)}
             style={{
-              flex: 1, paddingVertical: 14, alignItems: "center",
-              borderBottomWidth: 2,
-              borderBottomColor: activeTab === tab ? "#D4AF37" : "transparent",
+              flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: "center",
+              backgroundColor: activeTab === tab ? `${GOLD}1A` : CARD,
+              borderWidth: 1, borderColor: activeTab === tab ? GOLD : BORDER,
             }}
           >
-            <Text style={{ color: activeTab === tab ? "#D4AF37" : "#9CA3AF", fontWeight: "600", fontSize: 14, textTransform: "capitalize" }}>
-              {tab === "upcoming" ? "Upcoming" : "Past"}
+            <Text style={{ color: activeTab === tab ? GOLD : MUTED, fontWeight: "600", fontSize: 14 }}>
+              {tab === "past" ? `Past (${pastRides.length})` : `Upcoming (${upcomingRides.length})`}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
-
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#D4AF37" />}
-      >
-        {trips.length === 0 ? (
-          <View style={{ alignItems: "center", paddingTop: 60 }}>
-            <MaterialIcons name={activeTab === "upcoming" ? "schedule" : "history"} size={56} color="#2A2A2A" />
-            <Text style={{ color: "#9CA3AF", marginTop: 16, fontSize: 16, fontWeight: "600" }}>
-              {activeTab === "upcoming" ? "No upcoming rides" : "No past rides"}
-            </Text>
-            <Text style={{ color: "#6B7280", fontSize: 13, marginTop: 6, textAlign: "center" }}>
-              {activeTab === "upcoming" ? "Schedule a ride from the Home tab" : "Your completed rides will appear here"}
-            </Text>
-          </View>
-        ) : (
-          trips.map((trip) => (
+      <FlatList
+        data={displayedRides}
+        keyExtractor={item => item.id}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GOLD} />}
+        renderItem={({ item }) => {
+          const sc = STATUS_COLORS[item.status] || MUTED;
+          return (
             <TouchableOpacity
-              key={trip.id}
-              onPress={() => setSelectedTrip(trip)}
-              style={{ backgroundColor: "#111111", borderRadius: 16, padding: 16, borderWidth: 0.5, borderColor: "#2A2A2A", marginBottom: 12 }}
+              onPress={() => { setSelectedRide(item); setShowDetails(true); }}
+              style={{ backgroundColor: CARD, borderRadius: 16, padding: 14, marginBottom: 10, borderWidth: 0.5, borderColor: BORDER, borderLeftWidth: 3, borderLeftColor: sc }}
             >
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
                 <View style={{ flex: 1, marginRight: 12 }}>
-                  <Text style={{ color: "#9CA3AF", fontSize: 11 }}>{trip.date} · {trip.time}</Text>
-                  <Text style={{ color: "#FAFAFA", fontWeight: "600", fontSize: 15, marginTop: 2 }} numberOfLines={1}>{trip.to}</Text>
-                  <Text style={{ color: "#9CA3AF", fontSize: 12, marginTop: 1 }} numberOfLines={1}>from {trip.from}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: `${sc}1A` }}>
+                      <Text style={{ color: sc, fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}>{item.status}</Text>
+                    </View>
+                    <Text style={{ color: MUTED, fontSize: 11 }}>{formatDate(item.created_date)}</Text>
+                  </View>
+                  <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 14 }} numberOfLines={1}>{item.destination_address}</Text>
+                  <Text style={{ color: MUTED, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{item.pickup_address}</Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ color: "#D4AF37", fontWeight: "bold", fontSize: 16 }}>
-                    {trip.status === "cancelled" ? "—" : `GH₵${trip.fare.toFixed(2)}`}
-                  </Text>
-                  <View style={{ marginTop: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: statusBg(trip.status) }}>
-                    <Text style={{ color: statusColor(trip.status), fontSize: 10, fontWeight: "700", textTransform: "capitalize" }}>
-                      {trip.status}
-                    </Text>
-                  </View>
+                  <Text style={{ color: GOLD, fontWeight: "bold", fontSize: 16 }}>GH₵{item.fare.toFixed(2)}</Text>
+                  <Text style={{ color: MUTED, fontSize: 11 }}>{item.category}</Text>
                 </View>
               </View>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 10, borderTopWidth: 0.5, borderTopColor: "#2A2A2A" }}>
-                <MaterialIcons name="directions-car" size={13} color="#9CA3AF" />
-                <Text style={{ color: "#9CA3AF", fontSize: 12, flex: 1 }}>{trip.category} · {trip.distance.toFixed(1)} km · {trip.duration} min</Text>
-                {renderStars(trip.rating)}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <MaterialIcons name="route" size={13} color={MUTED} />
+                    <Text style={{ color: MUTED, fontSize: 12 }}>{item.distance.toFixed(1)} km</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <MaterialIcons name="access-time" size={13} color={MUTED} />
+                    <Text style={{ color: MUTED, fontSize: 12 }}>{item.duration} min</Text>
+                  </View>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <MaterialIcons name="payments" size={13} color={MUTED} />
+                    <Text style={{ color: MUTED, fontSize: 12 }}>{item.payment}</Text>
+                  </View>
+                </View>
+                {item.rider_rating && (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                    <MaterialIcons name="star" size={13} color={GOLD} />
+                    <Text style={{ color: GOLD, fontSize: 12, fontWeight: "600" }}>{item.rider_rating}</Text>
+                  </View>
+                )}
               </View>
+              {item.scheduled_for && (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, backgroundColor: `${GOLD}1A`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                  <MaterialIcons name="event" size={12} color={GOLD} />
+                  <Text style={{ color: GOLD, fontSize: 11, fontWeight: "500" }}>{item.scheduled_for}</Text>
+                </View>
+              )}
             </TouchableOpacity>
-          ))
-        )}
-      </ScrollView>
-
-      {/* Trip Detail Modal */}
-      <Modal visible={!!selectedTrip} animationType="slide" presentationStyle="pageSheet">
-        {selectedTrip && (
-          <View style={{ flex: 1, backgroundColor: "#0A0A0A" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingTop: insets.top + 16, paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 0.5, borderBottomColor: "#2A2A2A" }}>
-              <TouchableOpacity
-                onPress={() => setSelectedTrip(null)}
-                style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: "#1A1A1A", alignItems: "center", justifyContent: "center" }}
-              >
-                <MaterialIcons name="close" size={18} color="#FAFAFA" />
-              </TouchableOpacity>
-              <Text style={{ color: "#FAFAFA", fontWeight: "bold", fontSize: 18, flex: 1 }}>Trip Details</Text>
-              <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: statusBg(selectedTrip.status) }}>
-                <Text style={{ color: statusColor(selectedTrip.status), fontSize: 12, fontWeight: "700", textTransform: "capitalize" }}>{selectedTrip.status}</Text>
-              </View>
+          );
+        }}
+        ListEmptyComponent={
+          <View style={{ alignItems: "center", paddingVertical: 60 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: CARD, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <MaterialIcons name={activeTab === "past" ? "history" : "event"} size={32} color={MUTED} />
             </View>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 16, marginBottom: 6 }}>
+              {activeTab === "past" ? "No past rides" : "No upcoming trips"}
+            </Text>
+            <Text style={{ color: MUTED, fontSize: 13, textAlign: "center" }}>
+              {activeTab === "past" ? "Your completed rides will appear here" : "Schedule a ride from the home screen"}
+            </Text>
+          </View>
+        }
+      />
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}>
-              {/* Route */}
-              <View style={{ backgroundColor: "#111111", borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: "#2A2A2A" }}>
-                <Text style={{ color: "#9CA3AF", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 14 }}>Route</Text>
-                <View style={{ flexDirection: "row", gap: 12 }}>
-                  <View style={{ alignItems: "center" }}>
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#006B3F" }} />
-                    <View style={{ width: 1, height: 28, backgroundColor: "#2A2A2A" }} />
-                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: "#D4AF37" }} />
+      {/* Trip Details Modal */}
+      <Modal visible={showDetails} animationType="slide" presentationStyle="pageSheet">
+        <View style={{ flex: 1, backgroundColor: BG }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderBottomWidth: 0.5, borderBottomColor: BORDER }}>
+            <TouchableOpacity
+              onPress={() => setShowDetails(false)}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, alignItems: "center", justifyContent: "center" }}
+            >
+              <MaterialIcons name="close" size={20} color={TEXT} />
+            </TouchableOpacity>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, flex: 1 }}>Trip Details</Text>
+          </View>
+          {selectedRide && (
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <View style={{ backgroundColor: `${STATUS_COLORS[selectedRide.status]}1A`, borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: `${STATUS_COLORS[selectedRide.status]}4D`, flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <MaterialIcons
+                  name={selectedRide.status === "completed" ? "check-circle" : selectedRide.status === "cancelled" ? "cancel" : "event"}
+                  size={24}
+                  color={STATUS_COLORS[selectedRide.status]}
+                />
+                <View>
+                  <Text style={{ color: STATUS_COLORS[selectedRide.status], fontWeight: "bold", fontSize: 15, textTransform: "capitalize" }}>{selectedRide.status}</Text>
+                  <Text style={{ color: MUTED, fontSize: 12 }}>{formatDate(selectedRide.created_date)}</Text>
+                </View>
+              </View>
+
+              <View style={{ backgroundColor: CARD, borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 0.5, borderColor: BORDER }}>
+                <Text style={{ color: MUTED, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700", marginBottom: 12 }}>Route</Text>
+                <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                  <View style={{ alignItems: "center", gap: 4, marginTop: 2 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: GREEN }} />
+                    <View style={{ width: 1, height: 28, backgroundColor: BORDER }} />
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: GOLD }} />
                   </View>
-                  <View style={{ flex: 1, gap: 18 }}>
+                  <View style={{ flex: 1, gap: 10 }}>
                     <View>
-                      <Text style={{ color: "#9CA3AF", fontSize: 11 }}>Pickup</Text>
-                      <Text style={{ color: "#FAFAFA", fontWeight: "500", fontSize: 14 }}>{selectedTrip.from}</Text>
+                      <Text style={{ color: MUTED, fontSize: 10 }}>Pickup</Text>
+                      <Text style={{ color: TEXT, fontSize: 13, fontWeight: "500" }}>{selectedRide.pickup_address}</Text>
                     </View>
                     <View>
-                      <Text style={{ color: "#9CA3AF", fontSize: 11 }}>Destination</Text>
-                      <Text style={{ color: "#FAFAFA", fontWeight: "500", fontSize: 14 }}>{selectedTrip.to}</Text>
+                      <Text style={{ color: MUTED, fontSize: 10 }}>Destination</Text>
+                      <Text style={{ color: TEXT, fontSize: 13, fontWeight: "500" }}>{selectedRide.destination_address}</Text>
                     </View>
                   </View>
                 </View>
               </View>
 
-              {/* Stats */}
               <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}>
                 {[
-                  { label: "Distance", value: `${selectedTrip.distance.toFixed(1)} km` },
-                  { label: "Duration", value: `${selectedTrip.duration} min` },
-                  { label: "Category", value: selectedTrip.category },
-                ].map((stat) => (
-                  <View key={stat.label} style={{ flex: 1, backgroundColor: "#111111", borderRadius: 12, padding: 12, borderWidth: 0.5, borderColor: "#2A2A2A", alignItems: "center" }}>
-                    <Text style={{ color: "#9CA3AF", fontSize: 10 }}>{stat.label}</Text>
-                    <Text style={{ color: "#FAFAFA", fontWeight: "600", fontSize: 12, marginTop: 4, textAlign: "center" }}>{stat.value}</Text>
+                  { icon: "route", label: "Distance", value: `${selectedRide.distance.toFixed(1)} km` },
+                  { icon: "access-time", label: "Duration", value: `${selectedRide.duration} min` },
+                  { icon: "payments", label: "Payment", value: selectedRide.payment },
+                ].map((s, i) => (
+                  <View key={i} style={{ flex: 1, backgroundColor: SURFACE, borderRadius: 12, padding: 12, alignItems: "center", borderWidth: 0.5, borderColor: BORDER }}>
+                    <MaterialIcons name={s.icon as any} size={18} color={GOLD} />
+                    <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 13, marginTop: 4 }}>{s.value}</Text>
+                    <Text style={{ color: MUTED, fontSize: 10 }}>{s.label}</Text>
                   </View>
                 ))}
               </View>
 
-              {/* Fare */}
-              <View style={{ backgroundColor: "#111111", borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: "#2A2A2A" }}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
-                  <Text style={{ color: "#9CA3AF", fontSize: 13 }}>Payment Method</Text>
-                  <Text style={{ color: "#FAFAFA", fontSize: 13 }}>{selectedTrip.payment}</Text>
-                </View>
-                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text style={{ color: "#FAFAFA", fontWeight: "bold", fontSize: 15 }}>Total Fare</Text>
-                  <Text style={{ color: "#D4AF37", fontWeight: "bold", fontSize: 20 }}>
-                    {selectedTrip.status === "cancelled" ? "N/A" : `GH₵${selectedTrip.fare.toFixed(2)}`}
-                  </Text>
+              <View style={{ backgroundColor: CARD, borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 0.5, borderColor: BORDER }}>
+                <Text style={{ color: MUTED, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700", marginBottom: 10 }}>Fare Breakdown</Text>
+                <Row label={`${selectedRide.category} Fare`} value={`GH₵${selectedRide.fare.toFixed(2)}`} />
+                {selectedRide.discount && selectedRide.discount > 0 && (
+                  <Row label={`Promo (${selectedRide.promo_code})`} value={`-GH₵${selectedRide.discount.toFixed(2)}`} valueColor={GREEN} />
+                )}
+                {selectedRide.waiting_fee && selectedRide.waiting_fee > 0 && (
+                  <Row label="Waiting Fee" value={`+GH₵${selectedRide.waiting_fee.toFixed(2)}`} valueColor={RED} />
+                )}
+                {selectedRide.tip && selectedRide.tip > 0 && (
+                  <Row label="Tip" value={`+GH₵${selectedRide.tip.toFixed(2)}`} valueColor={GREEN} />
+                )}
+                <View style={{ borderTopWidth: 0.5, borderTopColor: BORDER, marginTop: 8, paddingTop: 8 }}>
+                  <Row
+                    label="Total Paid"
+                    value={`GH₵${(selectedRide.fare + (selectedRide.tip || 0) + (selectedRide.waiting_fee || 0) - (selectedRide.discount || 0)).toFixed(2)}`}
+                    valueColor={GOLD}
+                    bold
+                  />
                 </View>
               </View>
 
-              {/* Driver */}
-              {selectedTrip.driver && (
-                <View style={{ backgroundColor: "#111111", borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: "#2A2A2A" }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(212,175,55,0.1)", alignItems: "center", justifyContent: "center" }}>
-                        <MaterialIcons name="person" size={20} color="#D4AF37" />
-                      </View>
-                      <View>
-                        <Text style={{ color: "#9CA3AF", fontSize: 11 }}>Driver</Text>
-                        <Text style={{ color: "#FAFAFA", fontWeight: "500", fontSize: 14 }}>{selectedTrip.driver}</Text>
-                      </View>
+              {selectedRide.driver_name && (
+                <View style={{ backgroundColor: CARD, borderRadius: 16, padding: 14, marginBottom: 12, borderWidth: 0.5, borderColor: BORDER }}>
+                  <Text style={{ color: MUTED, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700", marginBottom: 10 }}>Driver</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: `${GOLD}33`, alignItems: "center", justifyContent: "center" }}>
+                      <MaterialIcons name="person" size={24} color={GOLD} />
                     </View>
-                    {selectedTrip.rating && (
-                      <View style={{ alignItems: "flex-end" }}>
-                        <Text style={{ color: "#9CA3AF", fontSize: 11 }}>Your Rating</Text>
-                        <View style={{ marginTop: 4 }}>{renderStars(selectedTrip.rating)}</View>
-                      </View>
-                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 14 }}>{selectedRide.driver_name}</Text>
+                      <Text style={{ color: MUTED, fontSize: 12 }}>{selectedRide.driver_vehicle} • {selectedRide.driver_plate}</Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <MaterialIcons name="star" size={16} color={GOLD} />
+                      <Text style={{ color: GOLD, fontWeight: "bold", fontSize: 14 }}>{selectedRide.driver_rating}</Text>
+                    </View>
                   </View>
                 </View>
               )}
 
-              {/* Date/Time */}
-              <View style={{ flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 4, marginBottom: 20 }}>
-                <Text style={{ color: "#6B7280", fontSize: 12 }}>{selectedTrip.date}</Text>
-                <Text style={{ color: "#6B7280", fontSize: 12 }}>{selectedTrip.time}</Text>
-              </View>
-
-              {/* Actions */}
-              <View style={{ gap: 10 }}>
-                {selectedTrip.status === "completed" && (
+              {selectedRide.status === "completed" && (
+                <View style={{ gap: 10 }}>
                   <TouchableOpacity
-                    onPress={() => { setSelectedTrip(null); Alert.alert("Rebook", `Booking a new ${selectedTrip.category} ride to ${selectedTrip.to}`); }}
-                    style={{ backgroundColor: "#D4AF37", borderRadius: 14, paddingVertical: 14, alignItems: "center" }}
+                    onPress={() => { setShowDetails(false); router.push("/"); }}
+                    style={{ backgroundColor: GREEN, borderRadius: 14, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
                   >
-                    <Text style={{ color: "#000", fontWeight: "bold", fontSize: 15 }}>Rebook this Trip</Text>
+                    <MaterialIcons name="replay" size={18} color="#fff" />
+                    <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Book Again</Text>
                   </TouchableOpacity>
-                )}
-                {selectedTrip.status === "scheduled" && (
                   <TouchableOpacity
-                    onPress={() => Alert.alert("Cancel Ride", "Are you sure you want to cancel this scheduled ride?", [
-                      { text: "No", style: "cancel" },
-                      { text: "Yes, Cancel", style: "destructive", onPress: () => { setSelectedTrip(null); Alert.alert("Ride Cancelled"); } },
-                    ])}
-                    style={{ borderWidth: 1, borderColor: "rgba(206,17,38,0.4)", borderRadius: 14, paddingVertical: 14, alignItems: "center" }}
+                    onPress={() => {
+                      setShowDetails(false);
+                      setReportRide(selectedRide);
+                      setSelectedIssue(null);
+                      setReportNote("");
+                      setReportSubmitted(false);
+                      setShowReport(true);
+                    }}
+                    style={{ borderWidth: 1, borderColor: `${RED}66`, borderRadius: 14, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
                   >
-                    <Text style={{ color: "#CE1126", fontWeight: "600", fontSize: 15 }}>Cancel Scheduled Ride</Text>
+                    <MaterialIcons name="flag" size={18} color={RED} />
+                    <Text style={{ color: RED, fontWeight: "600", fontSize: 15 }}>Report Issue</Text>
                   </TouchableOpacity>
-                )}
+                </View>
+              )}
+              {selectedRide.status === "upcoming" && (
                 <TouchableOpacity
-                  onPress={() => Alert.alert("Report Issue", "Your report has been submitted. Our team will review it shortly.")}
-                  style={{ backgroundColor: "#111111", borderRadius: 14, paddingVertical: 14, alignItems: "center", borderWidth: 0.5, borderColor: "#2A2A2A" }}
+                  onPress={() => {
+                    setShowDetails(false);
+                    Alert.alert("Cancel Ride", "Cancel this scheduled ride?", [
+                      { text: "No", style: "cancel" },
+                      { text: "Yes", style: "destructive", onPress: () => Alert.alert("Cancelled", "Your scheduled ride has been cancelled.") },
+                    ]);
+                  }}
+                  style={{ borderWidth: 1, borderColor: `${RED}66`, borderRadius: 14, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
                 >
-                  <Text style={{ color: "#9CA3AF", fontWeight: "500", fontSize: 14 }}>Report an Issue</Text>
+                  <MaterialIcons name="event-busy" size={18} color={RED} />
+                  <Text style={{ color: RED, fontWeight: "600", fontSize: 15 }}>Cancel Scheduled Ride</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
+
+      {/* Report Issue Modal */}
+      <Modal visible={showReport} animationType="slide" presentationStyle="pageSheet">
+        <View style={{ flex: 1, backgroundColor: BG }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderBottomWidth: 0.5, borderBottomColor: BORDER }}>
+            <TouchableOpacity
+              onPress={() => setShowReport(false)}
+              style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: CARD, alignItems: "center", justifyContent: "center" }}
+            >
+              <MaterialIcons name="close" size={20} color={TEXT} />
+            </TouchableOpacity>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, flex: 1 }}>Report Issue</Text>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
+            {reportSubmitted ? (
+              <View style={{ alignItems: "center", paddingVertical: 40 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: `${GREEN}1A`, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                  <MaterialIcons name="check-circle" size={40} color={GREEN} />
+                </View>
+                <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, marginBottom: 8 }}>Report Submitted!</Text>
+                <Text style={{ color: MUTED, fontSize: 13, textAlign: "center", marginBottom: 24 }}>Our team will review your report within 24 hours</Text>
+                <TouchableOpacity onPress={() => setShowReport(false)} style={{ backgroundColor: GREEN, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 40 }}>
+                  <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Done</Text>
                 </TouchableOpacity>
               </View>
-            </ScrollView>
-          </View>
-        )}
+            ) : (
+              <>
+                {reportRide && (
+                  <View style={{ backgroundColor: CARD, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 0.5, borderColor: BORDER }}>
+                    <Text style={{ color: TEXT, fontWeight: "600", fontSize: 13 }} numberOfLines={1}>{reportRide.destination_address}</Text>
+                    <Text style={{ color: MUTED, fontSize: 11, marginTop: 2 }}>{formatDate(reportRide.created_date)}</Text>
+                  </View>
+                )}
+                <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600", marginBottom: 10 }}>Select Issue Type</Text>
+                <View style={{ gap: 8, marginBottom: 16 }}>
+                  {REPORT_ISSUES.map((issue) => (
+                    <TouchableOpacity
+                      key={issue}
+                      onPress={() => setSelectedIssue(issue)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 12, backgroundColor: selectedIssue === issue ? `${RED}1A` : CARD, borderWidth: 1, borderColor: selectedIssue === issue ? `${RED}66` : BORDER }}
+                    >
+                      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: selectedIssue === issue ? RED : BORDER, alignItems: "center", justifyContent: "center" }}>
+                        {selectedIssue === issue && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: RED }} />}
+                      </View>
+                      <Text style={{ color: selectedIssue === issue ? TEXT : MUTED, fontSize: 14, fontWeight: selectedIssue === issue ? "600" : "400" }}>{issue}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600", marginBottom: 8 }}>Additional Notes (Optional)</Text>
+                <TextInput
+                  value={reportNote}
+                  onChangeText={setReportNote}
+                  placeholder="Describe what happened..."
+                  placeholderTextColor="#4A4A4A"
+                  multiline
+                  numberOfLines={4}
+                  style={{ backgroundColor: CARD, borderRadius: 12, padding: 12, color: TEXT, fontSize: 13, borderWidth: 1, borderColor: BORDER, minHeight: 90, textAlignVertical: "top", marginBottom: 20 }}
+                />
+                <TouchableOpacity
+                  onPress={handleSubmitReport}
+                  disabled={reportSubmitting}
+                  style={{ backgroundColor: RED, borderRadius: 14, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, opacity: selectedIssue ? 1 : 0.5 }}
+                >
+                  {reportSubmitting ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="flag" size={18} color="#fff" />
+                      <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Submit Report</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </View>
       </Modal>
-    </View>
+    </ScreenContainer>
   );
 }
