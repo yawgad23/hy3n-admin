@@ -1,125 +1,320 @@
-import { View, Text, ScrollView, TouchableOpacity, Switch } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Switch, Alert } from "react-native";
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
+import { useRouter } from "expo-router";
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [darkMode, setDarkMode] = useState(true);
+  const [editing, setEditing] = useState(false);
+  const [showSavedPlaces, setShowSavedPlaces] = useState(false);
+  const [showLoyalty, setShowLoyalty] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [form, setForm] = useState({
+    full_name: "John Doe",
+    phone: "+233 55 123 4567",
+    email: "john@example.com"
+  });
+
+  const handleSave = () => {
+    setEditing(false);
+    Alert.alert("Success", "Profile updated successfully");
+  };
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", onPress: () => {}, style: "cancel" },
+        { text: "Log Out", onPress: () => {}, style: "destructive" }
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      "Delete Account",
+      "This will permanently delete your account and all ride history. This action cannot be undone.",
+      [
+        { text: "Cancel", onPress: () => {}, style: "cancel" },
+        { text: "Delete Account", onPress: () => {}, style: "destructive" }
+      ]
+    );
+  };
+
+  const handleEditProfile = () => {
+    setEditing(true);
+  };
+
+  const handleMyWallet = () => {
+    router.push("/(tabs)/wallet");
+  };
+
+  const handleSavedPlaces = () => {
+    setShowSavedPlaces(!showSavedPlaces);
+  };
+
+  const handleLoyaltyRewards = () => {
+    setShowLoyalty(!showLoyalty);
+  };
+
+  const handleHelpCenter = () => {
+    setShowHelp(!showHelp);
+  };
+
+  const handleBiometric = () => {
+    setBiometricEnabled(!biometricEnabled);
+    Alert.alert("Biometric", biometricEnabled ? "Biometric disabled" : "Biometric enabled");
+  };
+
+  const handleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
+  const handleReferFriend = () => {
+    Alert.alert("Refer a Friend", "Share your referral code with friends");
+  };
+
+  const handlePaymentMethods = () => {
+    Alert.alert("Payment Methods", "Manage your payment methods");
+  };
+
+  const handleSafety = () => {
+    Alert.alert("Safety", "View safety information and emergency contacts");
+  };
 
   return (
-    <ScreenContainer className="p-4">
-      <View className="mb-6">
-        <Text className="text-3xl font-bold text-foreground">Account</Text>
-        <Text className="text-sm text-muted mt-1">Manage your profile</Text>
+    <ScreenContainer className="p-0">
+      {/* Header */}
+      <View className="border-b border-border px-4 py-4 bg-background">
+        <Text className="text-2xl font-bold text-foreground">Profile</Text>
       </View>
 
-      {/* Profile Header */}
-      <View className="bg-surface border border-border rounded-xl p-4 mb-6 flex-row items-center gap-4">
-        <View className="w-16 h-16 rounded-full bg-primary/20 items-center justify-center">
-          <Text className="text-2xl">👤</Text>
-        </View>
-        <View className="flex-1">
-          <Text className="text-lg font-bold text-foreground">John Doe</Text>
-          <Text className="text-sm text-muted">john@example.com</Text>
-          <Text className="text-xs text-muted mt-1">+233 55 123 4567</Text>
-        </View>
-      </View>
-
-      {/* Settings */}
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View className="gap-2">
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">👤</Text>
-              <Text className="text-sm font-medium text-foreground">Edit Profile</Text>
+      {editing ? (
+        // Edit Profile Form
+        <ScrollView className="flex-1 p-4">
+          <View className="bg-surface border border-border rounded-xl p-4 gap-4">
+            <View>
+              <Text className="text-xs text-muted mb-2">Full Name</Text>
+              <View className="bg-secondary border border-border rounded-lg px-4 py-3">
+                <Text className="text-foreground">{form.full_name}</Text>
+              </View>
             </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">💳</Text>
-              <Text className="text-sm font-medium text-foreground">My Wallet</Text>
+            <View>
+              <Text className="text-xs text-muted mb-2">Phone</Text>
+              <View className="bg-secondary border border-border rounded-lg px-4 py-3">
+                <Text className="text-foreground">{form.phone}</Text>
+              </View>
             </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">📍</Text>
-              <Text className="text-sm font-medium text-foreground">Saved Places</Text>
+            <View>
+              <Text className="text-xs text-muted mb-2">Email</Text>
+              <View className="bg-secondary border border-border rounded-lg px-4 py-3">
+                <Text className="text-foreground">{form.email}</Text>
+              </View>
             </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">🏆</Text>
-              <Text className="text-sm font-medium text-foreground">Loyalty Rewards</Text>
+            <View className="flex-row gap-2 mt-4">
+              <TouchableOpacity
+                onPress={handleSave}
+                className="flex-1 bg-success rounded-lg py-3 items-center"
+              >
+                <Text className="text-white font-semibold">Save</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setEditing(false)}
+                className="flex-1 bg-surface border border-border rounded-lg py-3 items-center"
+              >
+                <Text className="text-foreground font-semibold">Cancel</Text>
+              </TouchableOpacity>
             </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">❓</Text>
-              <Text className="text-sm font-medium text-foreground">Help Center</Text>
+          </View>
+        </ScrollView>
+      ) : (
+        // Profile Menu
+        <ScrollView className="flex-1 p-4">
+          {/* Avatar Section */}
+          <View className="items-center py-6 mb-4">
+            <View className="w-20 h-20 rounded-full bg-secondary border-2 border-primary items-center justify-center mb-3">
+              <Text className="text-4xl">👤</Text>
             </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">🔐</Text>
-              <Text className="text-sm font-medium text-foreground">Biometric Login</Text>
+            <Text className="text-lg font-bold text-foreground">John Doe</Text>
+            <Text className="text-sm text-muted">john@example.com</Text>
+            <View className="flex-row items-center gap-1 mt-2 bg-primary/10 px-3 py-1 rounded-full">
+              <Text className="text-xs">⭐</Text>
+              <Text className="text-xs font-semibold text-primary">4.8</Text>
+              <Text className="text-xs text-muted">avg rating</Text>
             </View>
-            <Switch value={false} />
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">🌙</Text>
-              <Text className="text-sm font-medium text-foreground">Dark Mode</Text>
+          {/* Menu Items */}
+          <View className="gap-2">
+            {/* Edit Profile */}
+            <TouchableOpacity
+              onPress={handleEditProfile}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">👤</Text>
+              <Text className="flex-1 text-sm text-foreground">Edit Profile</Text>
+              <Text className="text-muted">›</Text>
+            </TouchableOpacity>
+
+            {/* My Wallet */}
+            <TouchableOpacity
+              onPress={handleMyWallet}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">💳</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">My Wallet</Text>
+              <Text className="text-muted">›</Text>
+            </TouchableOpacity>
+
+            {/* Saved Places */}
+            <TouchableOpacity
+              onPress={handleSavedPlaces}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">📍</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">Saved Places</Text>
+              <Text className={`text-muted transform ${showSavedPlaces ? "rotate-90" : ""}`}>›</Text>
+            </TouchableOpacity>
+
+            {showSavedPlaces && (
+              <View className="bg-surface border border-border rounded-xl p-4 ml-2 mr-2">
+                <View className="gap-2">
+                  <View className="flex-row items-center gap-2 py-2">
+                    <Text>🏠</Text>
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-foreground">Home</Text>
+                      <Text className="text-xs text-muted">Not set</Text>
+                    </View>
+                  </View>
+                  <View className="flex-row items-center gap-2 py-2">
+                    <Text>💼</Text>
+                    <View className="flex-1">
+                      <Text className="text-sm font-medium text-foreground">Work</Text>
+                      <Text className="text-xs text-muted">Not set</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Loyalty Rewards */}
+            <TouchableOpacity
+              onPress={handleLoyaltyRewards}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-primary/30 rounded-xl"
+            >
+              <Text className="text-lg">🏆</Text>
+              <Text className="flex-1 text-sm font-medium text-primary">Loyalty Rewards</Text>
+              <Text className={`text-muted transform ${showLoyalty ? "rotate-90" : ""}`}>›</Text>
+            </TouchableOpacity>
+
+            {showLoyalty && (
+              <View className="bg-surface border border-border rounded-xl p-4 ml-2 mr-2">
+                <Text className="text-sm font-medium text-foreground mb-2">Loyalty Points</Text>
+                <Text className="text-2xl font-bold text-primary">2,450</Text>
+                <Text className="text-xs text-muted mt-1">Points earned from rides</Text>
+              </View>
+            )}
+
+            {/* Help Center */}
+            <TouchableOpacity
+              onPress={handleHelpCenter}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">❓</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">Help Center</Text>
+              <Text className={`text-muted transform ${showHelp ? "rotate-90" : ""}`}>›</Text>
+            </TouchableOpacity>
+
+            {showHelp && (
+              <View className="bg-surface border border-border rounded-xl p-4 ml-2 mr-2">
+                <View className="gap-2">
+                  <TouchableOpacity className="py-2">
+                    <Text className="text-sm text-foreground">FAQ</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="py-2">
+                    <Text className="text-sm text-foreground">Contact Support</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity className="py-2">
+                    <Text className="text-sm text-foreground">Report Issue</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Biometric Login */}
+            <View className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl">
+              <Text className="text-lg">🔐</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">
+                {biometricEnabled ? "Biometric Enabled" : "Biometric Login"}
+              </Text>
+              <Switch value={biometricEnabled} onValueChange={handleBiometric} />
             </View>
-            <Switch value={darkMode} onValueChange={setDarkMode} />
-          </TouchableOpacity>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">👥</Text>
-              <Text className="text-sm font-medium text-foreground">Refer a Friend</Text>
+            {/* Dark Mode */}
+            <View className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl">
+              <Text className="text-lg">{darkMode ? "🌙" : "☀️"}</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">
+                {darkMode ? "Dark Mode" : "Light Mode"}
+              </Text>
+              <Switch value={darkMode} onValueChange={handleDarkMode} />
             </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">💳</Text>
-              <Text className="text-sm font-medium text-foreground">Payment Methods</Text>
-            </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
+            {/* Refer a Friend */}
+            <TouchableOpacity
+              onPress={handleReferFriend}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">👥</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">Refer a Friend</Text>
+              <Text className="text-muted">›</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity className="bg-surface border border-border rounded-lg p-4 flex-row items-center justify-between">
-            <View className="flex-row items-center gap-3 flex-1">
-              <Text className="text-xl">🛡️</Text>
-              <Text className="text-sm font-medium text-foreground">Safety</Text>
-            </View>
-            <Text className="text-muted">›</Text>
-          </TouchableOpacity>
+            {/* Payment Methods */}
+            <TouchableOpacity
+              onPress={handlePaymentMethods}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">💳</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">Payment Methods</Text>
+              <Text className="text-muted">›</Text>
+            </TouchableOpacity>
 
-          {/* Logout */}
-          <TouchableOpacity className="bg-surface border border-error/30 rounded-lg p-4 flex-row items-center gap-3 mt-4">
-            <Text className="text-xl">🚪</Text>
-            <Text className="text-sm font-medium text-error">Log Out</Text>
-          </TouchableOpacity>
+            {/* Safety */}
+            <TouchableOpacity
+              onPress={handleSafety}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-border rounded-xl"
+            >
+              <Text className="text-lg">🛡️</Text>
+              <Text className="flex-1 text-sm font-medium text-foreground">Safety</Text>
+              <Text className="text-muted">›</Text>
+            </TouchableOpacity>
 
-          {/* Delete Account */}
-          <TouchableOpacity className="bg-error/10 border border-error/30 rounded-lg p-4 flex-row items-center gap-3 mt-2 mb-8">
-            <Text className="text-xl">🗑️</Text>
-            <Text className="text-sm font-medium text-error">Delete Account</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            {/* Log Out */}
+            <TouchableOpacity
+              onPress={handleLogout}
+              className="flex-row items-center gap-3 p-4 bg-surface border border-error/30 rounded-xl mt-4"
+            >
+              <Text className="text-lg">🚪</Text>
+              <Text className="flex-1 text-sm text-error">Log Out</Text>
+            </TouchableOpacity>
+
+            {/* Delete Account */}
+            <TouchableOpacity
+              onPress={handleDeleteAccount}
+              className="flex-row items-center gap-3 p-4 bg-error/10 border border-error/30 rounded-xl mb-8"
+            >
+              <Text className="text-lg">🗑️</Text>
+              <Text className="flex-1 text-sm text-error">Delete Account</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      )}
     </ScreenContainer>
   );
 }
