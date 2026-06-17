@@ -1412,10 +1412,18 @@ export default function HomeScreen() {
               ))}
             </View>
             <TouchableOpacity
-              onPress={() => {
+              onPress={async () => {
                 setRideRated(true);
                 setShowRatingModal(false);
-                Alert.alert("Thank you!", `You rated ${activeRide?.driverName || "your driver"} ${ratingValue} stars`);
+                // Save rating to Firestore on the ride document
+                if (activeRide?.firestoreId) {
+                  try {
+                    await dispatchService.rateDriver(activeRide.firestoreId, ratingValue);
+                  } catch (e) {
+                    console.warn('[Rating] Failed to save rating:', e);
+                  }
+                }
+                Alert.alert("Thank you!", `You rated ${activeRide?.driverName || "your driver"} ${ratingValue} star${ratingValue !== 1 ? 's' : ''}`);
               }}
               style={{ backgroundColor: GOLD, borderRadius: 14, paddingVertical: 14, alignItems: "center", marginBottom: 10 }}
             >
