@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useDriverAuth } from '@/lib/driver-auth-context';
 import { firestoreDB, COLLECTIONS } from '@/lib/firebase';
+import { Animated } from 'react-native';
 
 const GOLD = '#D4AF37';
 const BG = '#0A0A0A';
@@ -32,6 +33,10 @@ export default function DriverEarningsScreen() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<EarningsSummary>({ total: 0, trips: 0, commission: 0, net: 0, hours: 0 });
   const [dailyBreakdown, setDailyBreakdown] = useState<{ day: string; amount: number; trips: number }[]>([]);
+  const [weeklyTrips, setWeeklyTrips] = useState(0);
+  const challengeProgress = useRef(new Animated.Value(0)).current;
+  const CHALLENGE_TARGET = 10;
+  const CHALLENGE_BONUS = 50;
 
   useEffect(() => {
     if (!user) return;
@@ -54,6 +59,16 @@ export default function DriverEarningsScreen() {
       const commission = total * commissionRate;
       const net = total - commission;
       setSummary({ total, trips: filtered.length, commission, net, hours: filtered.length * 0.5 });
+
+      // Weekly challenge progress
+      const weekAgoForChallenge = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const weekRides = rides.filter(r => r.created_date && new Date(r.created_date) >= weekAgoForChallenge);
+      setWeeklyTrips(weekRides.length);
+      Animated.timing(challengeProgress, {
+        toValue: Math.min(weekRides.length / CHALLENGE_TARGET, 1),
+        duration: 800,
+        useNativeDriver: false,
+      }).start();
 
       // Daily breakdown for week view
       if (period === 'week') {
@@ -165,6 +180,43 @@ export default function DriverEarningsScreen() {
               </Text>
             </View>
 
+            {/* Weekly Challenge */}
+            <View style={styles.challengeCard}>
+              <View style={styles.challengeHeader}>
+                <MaterialIcons name="emoji-events" size={22} color={GOLD} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.challengeTitle}>Weekly Challenge</Text>
+                  <Text style={styles.challengeSubtitle}>Complete 10 rides this week</Text>
+                </View>
+                <View style={styles.challengeReward}>
+                  <Text style={styles.challengeRewardText}>GH₵{CHALLENGE_BONUS}</Text>
+                  <Text style={styles.challengeRewardLabel}>Bonus</Text>
+                </View>
+              </View>
+              <View style={styles.progressTrack}>
+                <Animated.View style={[styles.progressFill, {
+                  width: challengeProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }),
+                  backgroundColor: weeklyTrips >= CHALLENGE_TARGET ? GREEN : GOLD,
+                }]} />
+              </View>
+              <View style={styles.challengeFooter}>
+                <Text style={styles.challengeCount}>
+                  {weeklyTrips >= CHALLENGE_TARGET ? '✓ Challenge Complete!' : `${weeklyTrips} / ${CHALLENGE_TARGET} trips`}
+                </Text>
+                {weeklyTrips >= CHALLENGE_TARGET ? (
+                  <Text style={[styles.challengeStatus, { color: GREEN }]}>Bonus paid Monday</Text>
+                ) : (
+                  <Text style={styles.challengeStatus}>{CHALLENGE_TARGET - weeklyTrips} more to go</Text>
+                )}
+              </View>
+              {weeklyTrips >= CHALLENGE_TARGET && (
+                <View style={styles.challengeCompleteBanner}>
+                  <MaterialIcons name="check-circle" size={16} color={GREEN} />
+                  <Text style={styles.challengeCompleteText}>GH₵{CHALLENGE_BONUS} bonus will be added to your wallet on Monday!</Text>
+                </View>
+              )}
+            </View>
+
             {/* Driver Tier */}
             <View style={styles.tierCard}>
               <View style={styles.tierHeader}>
@@ -238,4 +290,18 @@ const styles = StyleSheet.create({
   tierBadgeText: { fontSize: 12, fontWeight: '700', color: MUTED },
   tierBadgeTrips: { fontSize: 10, color: MUTED, marginTop: 2 },
   tierSubtext: { fontSize: 12, color: MUTED, textAlign: 'center' },
+  challengeCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: '#0D1A00', borderRadius: 20, padding: 16, borderWidth: 1, borderColor: '#1A3300' },
+  challengeHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
+  challengeTitle: { fontSize: 15, fontWeight: '800', color: TEXT },
+  challengeSubtitle: { fontSize: 12, color: MUTED, marginTop: 2 },
+  challengeReward: { alignItems: 'center', backgroundColor: GOLD + '20', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: GOLD + '40' },
+  challengeRewardText: { fontSize: 16, fontWeight: '900', color: GOLD },
+  challengeRewardLabel: { fontSize: 10, color: GOLD, opacity: 0.8 },
+  progressTrack: { height: 10, backgroundColor: '#1A2A00', borderRadius: 5, overflow: 'hidden', marginBottom: 10 },
+  progressFill: { height: '100%', borderRadius: 5 },
+  challengeFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  challengeCount: { fontSize: 14, fontWeight: '700', color: TEXT },
+  challengeStatus: { fontSize: 12, color: MUTED },
+  challengeCompleteBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, backgroundColor: '#0D2600', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#1A4400' },
+  challengeCompleteText: { flex: 1, fontSize: 12, color: GREEN, fontWeight: '600', lineHeight: 16 },
 });
