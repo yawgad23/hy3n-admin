@@ -1185,8 +1185,11 @@ export default function HomeScreen() {
             source={require('@/assets/images/icon.png')}
             style={{ width: 80, height: 40, resizeMode: 'contain' }}
           />
-          <Text style={{ color: GOLD, fontSize: 20, fontWeight: '800', fontStyle: 'italic', letterSpacing: 0.5, marginTop: 3, textShadowColor: 'rgba(212,175,55,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 }}>
-            Wo ho te sɛn{riderProfile?.full_name ? `, ${riderProfile.full_name.split(' ')[0]}` : ''}? 👋
+          <Text style={{ color: GOLD, fontSize: 20, fontWeight: '800', letterSpacing: 0.3, marginTop: 3, textShadowColor: 'rgba(212,175,55,0.4)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 6 }}>
+            Akwaaba{riderProfile?.full_name ? `, ${riderProfile.full_name.split(' ')[0]}` : ''}! 👋
+          </Text>
+          <Text style={{ color: 'rgba(212,175,55,0.75)', fontSize: 13, fontWeight: '500', fontStyle: 'italic', marginTop: 1 }}>
+            Wo ho te sɛn?
           </Text>
         </View>
         <TouchableOpacity
