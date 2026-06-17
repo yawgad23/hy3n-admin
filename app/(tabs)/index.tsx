@@ -13,6 +13,7 @@ import {
   FlatList,
   Share,
   Linking,
+  Image,
 } from "react-native";
 import LeafletMap from "@/components/LeafletMap";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -875,12 +876,10 @@ export default function HomeScreen() {
 
       {/* Header */}
       <View style={{ position: "absolute", top: safeTop + 4, left: 16, right: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: GOLD, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: "#000", fontWeight: "bold", fontSize: 14 }}>H</Text>
-          </View>
-          <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, letterSpacing: 1 }}>HY3N</Text>
-        </View>
+        <Image
+          source={require('@/assets/images/icon.png')}
+          style={{ width: 80, height: 40, resizeMode: 'contain' }}
+        />
         <TouchableOpacity
           style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(17,17,17,0.9)", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: BORDER }}
           onPress={() => Alert.alert("Notifications", "No new notifications")}

@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert,
+  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert, Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
@@ -110,14 +110,13 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-        {/* Logo */}
+                {/* Logo */}
         <View style={styles.logoRow}>
-          <View style={styles.logoCircle}>
-            <Text style={styles.logoText}>H</Text>
-          </View>
-          <Text style={styles.appName}>HY3N</Text>
+          <Image
+            source={require('@/assets/images/icon.png')}
+            style={{ width: 180, height: 180, resizeMode: 'contain' }}
+          />
         </View>
-
         <Text style={styles.title}>Akwaaba to HY3N</Text>
         <Text style={styles.subtitle}>Ghana's premium ride-hailing app</Text>
 
@@ -311,10 +310,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
   scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  logoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
-  logoCircle: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginRight: 10, backgroundColor: GOLD },
-  logoText: { fontSize: 24, fontWeight: '900', color: '#000' },
-  appName: { fontSize: 32, fontWeight: '900', letterSpacing: 2, color: TEXT },
+  logoRow: { alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 6, color: TEXT },
   subtitle: { fontSize: 14, textAlign: 'center', marginBottom: 28, color: MUTED },
   tabRow: { flexDirection: 'row', backgroundColor: CARD, borderRadius: 12, padding: 4, marginBottom: 24, borderWidth: 1, borderColor: BORDER },
