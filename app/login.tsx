@@ -8,7 +8,10 @@ import { useAuth } from '@/lib/auth-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { auth, app } from '@/lib/firebase';
 import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
-import { FirebaseRecaptchaVerifierModal } from 'expo-firebase-recaptcha';
+// FirebaseRecaptchaVerifierModal crashes on web — only import on native
+const FirebaseRecaptchaVerifierModal = Platform.OS !== 'web'
+  ? require('expo-firebase-recaptcha').FirebaseRecaptchaVerifierModal
+  : null;
 
 const GOLD = '#D4AF37';
 const GREEN = '#006B3F';
@@ -36,8 +39,8 @@ export default function LoginScreen() {
   const { signIn } = useAuth();
   const [tab, setTab] = useState<LoginTab>('phone');
 
-  // Recaptcha ref for phone auth
-  const recaptchaVerifier = useRef<FirebaseRecaptchaVerifierModal>(null);
+  // Recaptcha ref for phone auth (typed as any to avoid web build type error)
+  const recaptchaVerifier = useRef<any>(null);
 
   // Phone OTP state
   const [phone, setPhone] = useState('');
@@ -58,6 +61,10 @@ export default function LoginScreen() {
     const fullNumber = '+233' + digits.replace(/^\+?233/, '').replace(/^0/, '');
     if (digits.length < 9) {
       Alert.alert('Invalid Number', 'Please enter your 9-digit Ghana mobile number (e.g. 241234567)');
+      return;
+    }
+    if (Platform.OS === 'web') {
+      Alert.alert('Phone Login', 'Phone OTP is not available on web. Please use the Email tab to log in.', [{ text: 'Switch to Email', onPress: () => setTab('email') }, { text: 'OK' }]);
       return;
     }
     if (!recaptchaVerifier.current) {
@@ -130,14 +137,16 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      {/* Firebase Recaptcha Verifier — invisible, required for phone OTP on native */}
-      <FirebaseRecaptchaVerifierModal
-        ref={recaptchaVerifier}
-        firebaseConfig={app.options}
-        attemptInvisibleVerification={true}
-        title="Verify you're human"
-        cancelLabel="Cancel"
-      />
+      {/* Firebase Recaptcha Verifier — invisible, required for phone OTP on native only */}
+      {Platform.OS !== 'web' && FirebaseRecaptchaVerifierModal && (
+        <FirebaseRecaptchaVerifierModal
+          ref={recaptchaVerifier}
+          firebaseConfig={app.options}
+          attemptInvisibleVerification={true}
+          title="Verify you're human"
+          cancelLabel="Cancel"
+        />
+      )}
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
