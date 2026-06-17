@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
-  Alert, Image,
+  View, Text, TextInput, TouchableOpacity, ScrollView,
+  StyleSheet, Alert, Image, ActivityIndicator, Platform,
 } from 'react-native';
-import { router } from 'expo-router';
-import { useDriverAuth } from '@/lib/driver-auth-context';
-import { firestoreDB, COLLECTIONS } from '@/lib/firebase';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import * as ImagePicker from 'expo-image-picker';
+import { useDriverAuth } from '@/lib/driver-auth-context';
+import { firestoreDB, COLLECTIONS, auth as firebaseAuthObj, firebaseAuth } from '@/lib/firebase';
 
 const GOLD = '#D4AF37';
 const BG = '#0A0A0A';
@@ -16,199 +17,536 @@ const BORDER = '#2A2A2A';
 const TEXT = '#FAFAFA';
 const MUTED = '#9CA3AF';
 
-export default function DriverRegisterScreen() {
-  const { signUp, signInWithGoogle, user } = useDriverAuth();
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+const CAR_TIERS = [
+  { id: 'standard', label: 'Standard', description: 'Everyday affordable rides' },
+  { id: 'comfort', label: 'Comfort', description: 'Newer cars with extra space' },
+  { id: 'kantanka', label: 'Kantanka', description: 'Mini SUVs (Kantanka Hyen, etc.)' },
+  { id: 'executive', label: 'Executive', description: 'Luxury high-end vehicles' },
+];
 
-  const createDriverApplication = async (uid: string, name: string, emailAddr: string, phoneNum: string) => {
-    await firestoreDB.create(COLLECTIONS.DRIVER_PROFILES, {
-      user_id: uid,
-      full_name: name,
-      email: emailAddr,
-      phone: phoneNum,
-      approval_status: 'pending',
-      is_online: false,
-      is_available: false,
-      rating: 5.0,
-      total_trips: 0,
-    });
+const SERVICE_TYPES = [
+  {
+    id: 'car',
+    label: 'Car Driver',
+    description: 'Standard, Comfort, Kantanka or Executive rides',
+    icon: 'directions-car' as const,
+    vehicleLabel: 'Car',
+    vehiclePlaceholder: 'e.g. Toyota Camry 2022',
+    makePlaceholder: 'e.g. Toyota',
+  },
+  {
+    id: 'okada',
+    label: 'Okada Rider',
+    description: 'Fast motorbike rides to beat traffic',
+    icon: 'two-wheeler' as const,
+    vehicleLabel: 'Motorbike',
+    vehiclePlaceholder: 'e.g. Yamaha Fazer 2021',
+    makePlaceholder: 'e.g. Yamaha',
+  },
+  {
+    id: 'delivery',
+    label: 'Delivery Driver',
+    description: 'Package and parcel deliveries across the city',
+    icon: 'inventory' as const,
+    vehicleLabel: 'Vehicle',
+    vehiclePlaceholder: 'e.g. Honda CB 2020',
+    makePlaceholder: 'e.g. Honda',
+  },
+];
+
+function FileUploadField({ label, uri, onPick }: { label: string; uri: string; onPick: (u: string) => void }) {
+  const pick = async (camera: boolean) => {
+    const perm = camera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission required', `Please allow ${camera ? 'camera' : 'photo library'} access.`);
+      return;
+    }
+    const result = camera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.8 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    if (!result.canceled && result.assets[0]) onPick(result.assets[0].uri);
   };
 
-  const handleRegister = async () => {
-    if (!fullName.trim() || !email.trim() || !phone.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
-    }
+  return (
+    <View style={{ gap: 6, marginBottom: 12 }}>
+      <Text style={[styles.label]}>{label}</Text>
+      {uri ? (
+        <View style={[styles.uploadedRow]}>
+          <Image source={{ uri }} style={styles.uploadThumb} />
+          <Text style={{ color: GOLD, flex: 1, fontSize: 13, fontWeight: '600' }} numberOfLines={1}>Photo selected ✓</Text>
+          <TouchableOpacity onPress={() => onPick('')}>
+            <Text style={{ color: MUTED, fontSize: 12 }}>Remove</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.uploadRow}>
+          <TouchableOpacity style={styles.uploadBtn} onPress={() => pick(false)}>
+            <MaterialIcons name="upload" size={20} color={MUTED} />
+            <Text style={{ color: MUTED, fontSize: 12 }}>Upload</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.uploadBtn} onPress={() => pick(true)}>
+            <MaterialIcons name="camera-alt" size={20} color={MUTED} />
+            <Text style={{ color: MUTED, fontSize: 12 }}>Camera</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+export default function DriverRegisterScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { signUp, signInWithGoogle } = useDriverAuth();
+
+  const [step, setStep] = useState(1);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('+233');
+  const [momoNumber, setMomoNumber] = useState('+233');
+  const [vehicleMake, setVehicleMake] = useState('');
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [vehiclePlate, setVehiclePlate] = useState('');
+  const [vehicleColor, setVehicleColor] = useState('');
+  const [serviceType, setServiceType] = useState('');
+  const [carTier, setCarTier] = useState('standard');
+  const [ghanaCardFront, setGhanaCardFront] = useState('');
+  const [ghanaCardBack, setGhanaCardBack] = useState('');
+  const [licenseFront, setLicenseFront] = useState('');
+  const [licenseBack, setLicenseBack] = useState('');
+  const [driverPhoto, setDriverPhoto] = useState('');
+  const [vehiclePhoto, setVehiclePhoto] = useState('');
+  const [insurancePhoto, setInsurancePhoto] = useState('');
+  const [roadworthyPhoto, setRoadworthyPhoto] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const selectedService = SERVICE_TYPES.find(s => s.id === serviceType);
+
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+
+  const startVerificationPolling = () => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const user = firebaseAuthObj.currentUser;
+        if (user) {
+          await user.reload();
+          if (user.emailVerified) {
+            if (pollRef.current) clearInterval(pollRef.current);
+            setStep(3);
+          }
+        }
+      } catch {}
+    }, 3000);
+  };
+
+  const handleCreateAccount = async () => {
+    setError('');
+    if (!fullName.trim()) { setError('Please enter your full name.'); return; }
+    if (!email.trim()) { setError('Please enter your email.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirmPassword) { setError('Passwords do not match.'); return; }
     setLoading(true);
     try {
       await signUp(email.trim(), password);
-      // After sign up, user is set in context — create driver profile
-      const { auth } = require('@/lib/firebase');
-      const uid = auth.currentUser?.uid || '';
-      await createDriverApplication(uid, fullName.trim(), email.trim(), phone.trim());
-      Alert.alert(
-        'Application Submitted! 🎉',
-        'Your driver application has been submitted. Our team will review it and get back to you within 24-48 hours.',
-        [{ text: 'OK', onPress: () => router.replace('/driver/(tabs)' as any) }]
-      );
-    } catch (err: any) {
-      const code = err?.code || '';
-      if (code === 'auth/email-already-in-use') {
-        Alert.alert('Email Already Registered', 'This email is already in use. Please log in instead.');
-      } else {
-        Alert.alert('Registration Failed', err.message || 'An error occurred. Please try again.');
+      const user = firebaseAuthObj.currentUser;
+      if (user) {
+        const { sendEmailVerification: sendVerif } = await import('firebase/auth');
+        await sendVerif(user);
       }
+      setStep(2);
+      startVerificationPolling();
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleRegister = async () => {
-    setGoogleLoading(true);
+  const handleGoogleSignUp = async () => {
+    setError('');
+    setLoading(true);
     try {
       await signInWithGoogle();
-      const { auth } = require('@/lib/firebase');
-      const uid = auth.currentUser?.uid || '';
-      const name = auth.currentUser?.displayName || '';
-      const emailAddr = auth.currentUser?.email || '';
-      await createDriverApplication(uid, name, emailAddr, '');
-      router.replace('/driver/(tabs)' as any);
-    } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        Alert.alert('Google Sign-Up Failed', err.message || 'Could not sign up with Google.');
+      const user = firebaseAuthObj.currentUser;
+      if (user) {
+        setEmail(user.email || '');
+        setFullName(user.displayName || '');
       }
+      setStep(3);
+    } catch (err: any) {
+      setError(err.message || 'Google sign-in failed.');
     } finally {
-      setGoogleLoading(false);
+      setLoading(false);
     }
   };
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Back button */}
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={22} color={TEXT} />
+  const handleSubmitApplication = async () => {
+    if (!serviceType) { setError('Please select a service type.'); return; }
+    if (!vehicleMake.trim() || !vehicleModel.trim() || !vehiclePlate.trim()) {
+      setError('Please fill in all vehicle details.'); return;
+    }
+    setError('');
+    setLoading(true);
+    try {
+      const user = firebaseAuthObj.currentUser;
+      if (!user) throw new Error('Not authenticated');
+
+      const rideCategories = serviceType === 'car'
+        ? [carTier]
+        : serviceType === 'okada' ? ['okada'] : ['express_delivery'];
+
+      const profileData = {
+        user_id: user.uid,
+        full_name: fullName,
+        phone,
+        email: email || user.email || '',
+        momo_number: momoNumber,
+        vehicle_make: vehicleMake,
+        vehicle_model: vehicleModel,
+        license_plate: vehiclePlate,
+        vehicle_color: vehicleColor,
+        service_type: serviceType,
+        ride_categories: rideCategories,
+        ghana_card_front_url: ghanaCardFront,
+        ghana_card_back_url: ghanaCardBack,
+        drivers_license_front_url: licenseFront,
+        drivers_license_back_url: licenseBack,
+        profile_photo_url: driverPhoto,
+        vehicle_registration_url: vehiclePhoto,
+        insurance_url: insurancePhoto,
+        roadworthy_url: roadworthyPhoto,
+        approval_status: 'pending',
+        is_online: false,
+        total_earnings: 0,
+        total_rides: 0,
+        rating: 5,
+      };
+
+      const existing = await firestoreDB.list(COLLECTIONS.DRIVER_PROFILES, { user_id: user.uid });
+      if (existing.length > 0) {
+        await firestoreDB.update(COLLECTIONS.DRIVER_PROFILES, existing[0].id, profileData);
+      } else {
+        await firestoreDB.create(COLLECTIONS.DRIVER_PROFILES, profileData);
+      }
+      setStep(5);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit application.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const TOTAL_STEPS = 5;
+  const stepLabels = ['Account', 'Verify', 'Details', 'Documents', 'Done'];
+
+  const renderStep1 = () => (
+    <ScrollView contentContainerStyle={styles.stepContent} keyboardShouldPersistTaps="handled">
+      <Text style={styles.stepTitle}>Create Account</Text>
+      <Text style={styles.stepSubtitle}>Start your journey as an HY3N driver</Text>
+
+      <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleSignUp} disabled={loading}>
+        <View style={styles.googleIconWrap}><Text style={{ color: '#4285F4', fontWeight: '700', fontSize: 14 }}>G</Text></View>
+        <Text style={styles.googleBtnText}>Continue with Google</Text>
+      </TouchableOpacity>
+
+      <View style={styles.dividerRow}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>or</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      <Text style={styles.label}>Full Name</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="person" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="e.g. Kwame Mensah" placeholderTextColor={MUTED} value={fullName} onChangeText={setFullName} autoCapitalize="words" />
+      </View>
+
+      <Text style={styles.label}>Email Address</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="email" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="you@example.com" placeholderTextColor={MUTED} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
+      </View>
+
+      <Text style={styles.label}>Password</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="lock" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="Min. 6 characters" placeholderTextColor={MUTED} value={password} onChangeText={setPassword} secureTextEntry />
+      </View>
+
+      <Text style={styles.label}>Confirm Password</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="lock" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="Repeat password" placeholderTextColor={MUTED} value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+      </View>
+
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+      <TouchableOpacity style={[styles.primaryBtn, { opacity: loading ? 0.7 : 1 }]} onPress={handleCreateAccount} disabled={loading}>
+        {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryBtnText}>Create Account</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => router.push('/driver/login' as any)} style={{ marginTop: 16, alignItems: 'center' }}>
+        <Text style={styles.linkText}>Already have an account? <Text style={{ color: GOLD }}>Sign In</Text></Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  const renderStep2 = () => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+      <MaterialIcons name="mark-email-unread" size={72} color={GOLD} />
+      <Text style={[styles.stepTitle, { textAlign: 'center', marginTop: 16 }]}>Verify Your Email</Text>
+      <Text style={[styles.stepSubtitle, { textAlign: 'center' }]}>
+        We sent a verification link to{'\n'}
+        <Text style={{ color: TEXT, fontWeight: '700' }}>{email}</Text>
+      </Text>
+      <View style={styles.infoBox}>
+        <MaterialIcons name="info" size={16} color={GOLD} />
+        <Text style={styles.infoText}>This page will advance automatically once verified.</Text>
+      </View>
+      <TouchableOpacity style={styles.outlineBtn} onPress={async () => {
+        try {
+          const user = firebaseAuthObj.currentUser;
+          if (user) {
+            const { sendEmailVerification: sendVerif } = await import('firebase/auth');
+            await sendVerif(user);
+          }
+          Alert.alert('Sent!', 'Verification email resent. Check your inbox.');
+        } catch { Alert.alert('Error', 'Could not resend email.'); }
+      }}>
+        <MaterialIcons name="refresh" size={18} color={TEXT} />
+        <Text style={styles.outlineBtnText}>Resend Email</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderStep3 = () => (
+    <ScrollView contentContainerStyle={styles.stepContent} keyboardShouldPersistTaps="handled">
+      <Text style={styles.stepTitle}>Personal Details</Text>
+      <Text style={styles.stepSubtitle}>Tell us about yourself</Text>
+
+      <Text style={styles.label}>Full Name</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="person" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} value={fullName} onChangeText={setFullName} placeholder="e.g. Kwame Mensah" placeholderTextColor={MUTED} autoCapitalize="words" />
+      </View>
+
+      <Text style={styles.label}>Phone Number</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="phone" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="+233XXXXXXXXX" placeholderTextColor={MUTED} keyboardType="phone-pad" />
+      </View>
+
+      <Text style={styles.label}>MoMo Number (for earnings)</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="account-balance-wallet" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} value={momoNumber} onChangeText={setMomoNumber} placeholder="+233XXXXXXXXX" placeholderTextColor={MUTED} keyboardType="phone-pad" />
+      </View>
+
+      <Text style={[styles.sectionTitle]}>Select Service Type</Text>
+      {SERVICE_TYPES.map((svc) => (
+        <TouchableOpacity
+          key={svc.id}
+          style={[styles.serviceCard, serviceType === svc.id && { borderColor: GOLD, backgroundColor: GOLD + '15' }]}
+          onPress={() => setServiceType(svc.id)}
+        >
+          <View style={[styles.serviceIconBox, serviceType === svc.id && { backgroundColor: GOLD + '30' }]}>
+            <MaterialIcons name={svc.icon} size={26} color={serviceType === svc.id ? GOLD : MUTED} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.serviceLabel, serviceType === svc.id && { color: GOLD }]}>{svc.label}</Text>
+            <Text style={styles.serviceDesc}>{svc.description}</Text>
+          </View>
+          {serviceType === svc.id && <MaterialIcons name="check-circle" size={22} color={GOLD} />}
         </TouchableOpacity>
+      ))}
 
-        {/* Logo */}
-        <View style={styles.logoRow}>
-          <Image source={require('@/assets/images/icon.png')} style={styles.logo} resizeMode="contain" />
-        </View>
-        <Text style={styles.title}>Apply to Drive 🚗</Text>
-        <Text style={styles.subtitle}>Join the HY3N driver fleet in Ghana</Text>
+      {serviceType === 'car' && (
+        <>
+          <Text style={styles.sectionTitle}>Car Tier</Text>
+          <View style={styles.tierGrid}>
+            {CAR_TIERS.map((tier) => (
+              <TouchableOpacity
+                key={tier.id}
+                style={[styles.tierCard, carTier === tier.id && { borderColor: GOLD, backgroundColor: GOLD + '15' }]}
+                onPress={() => setCarTier(tier.id)}
+              >
+                <Text style={[styles.tierLabel, carTier === tier.id && { color: GOLD }]}>{tier.label}</Text>
+                <Text style={styles.tierDesc}>{tier.description}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
 
-        <View style={styles.card}>
-          {/* Google */}
-          <TouchableOpacity style={styles.googleBtn} onPress={handleGoogleRegister} disabled={googleLoading} activeOpacity={0.8}>
-            {googleLoading ? <ActivityIndicator size="small" color={TEXT} /> : (
-              <>
-                <View style={styles.googleIconWrap}><Text style={{ color: '#4285F4', fontWeight: '700', fontSize: 14 }}>G</Text></View>
-                <Text style={styles.googleText}>Continue with Google</Text>
-              </>
-            )}
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+      <TouchableOpacity
+        style={[styles.primaryBtn, { opacity: !serviceType ? 0.5 : 1 }]}
+        onPress={() => {
+          if (!serviceType) { setError('Please select a service type.'); return; }
+          if (!fullName.trim() || !phone.trim()) { setError('Please fill in all fields.'); return; }
+          setError('');
+          setStep(4);
+        }}
+        disabled={!serviceType}
+      >
+        <Text style={styles.primaryBtnText}>Continue</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  const renderStep4 = () => (
+    <ScrollView contentContainerStyle={styles.stepContent} keyboardShouldPersistTaps="handled">
+      <Text style={styles.stepTitle}>Vehicle & Documents</Text>
+      <Text style={styles.stepSubtitle}>Upload your vehicle details and required documents</Text>
+
+      <Text style={styles.sectionTitle}>Vehicle Details</Text>
+      <Text style={styles.label}>{selectedService?.vehicleLabel || 'Vehicle'} Make</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="directions-car" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder={selectedService?.makePlaceholder || 'e.g. Toyota'} placeholderTextColor={MUTED} value={vehicleMake} onChangeText={setVehicleMake} />
+      </View>
+
+      <Text style={styles.label}>{selectedService?.vehicleLabel || 'Vehicle'} Model</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="directions-car" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder={selectedService?.vehiclePlaceholder || 'e.g. Camry 2022'} placeholderTextColor={MUTED} value={vehicleModel} onChangeText={setVehicleModel} />
+      </View>
+
+      <Text style={styles.label}>License Plate</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="badge" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="e.g. GR-1234-22" placeholderTextColor={MUTED} value={vehiclePlate} onChangeText={setVehiclePlate} autoCapitalize="characters" />
+      </View>
+
+      <Text style={styles.label}>Vehicle Color</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="palette" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="e.g. Silver" placeholderTextColor={MUTED} value={vehicleColor} onChangeText={setVehicleColor} />
+      </View>
+
+      <Text style={styles.sectionTitle}>Required Documents</Text>
+      <FileUploadField label="Ghana Card (Front)" uri={ghanaCardFront} onPick={setGhanaCardFront} />
+      <FileUploadField label="Ghana Card (Back)" uri={ghanaCardBack} onPick={setGhanaCardBack} />
+      <FileUploadField label="Driver's License (Front)" uri={licenseFront} onPick={setLicenseFront} />
+      <FileUploadField label="Driver's License (Back)" uri={licenseBack} onPick={setLicenseBack} />
+      <FileUploadField label="Your Photo (Selfie)" uri={driverPhoto} onPick={setDriverPhoto} />
+      <FileUploadField label="Vehicle Photo" uri={vehiclePhoto} onPick={setVehiclePhoto} />
+      <FileUploadField label="Insurance Certificate" uri={insurancePhoto} onPick={setInsurancePhoto} />
+      <FileUploadField label="Roadworthy Certificate" uri={roadworthyPhoto} onPick={setRoadworthyPhoto} />
+
+      {!!error && <Text style={styles.errorText}>{error}</Text>}
+
+      <TouchableOpacity style={[styles.primaryBtn, { opacity: loading ? 0.7 : 1 }]} onPress={handleSubmitApplication} disabled={loading}>
+        {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.primaryBtnText}>Submit Application</Text>}
+      </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.outlineBtn, { marginTop: 8 }]} onPress={() => setStep(3)}>
+        <MaterialIcons name="arrow-back" size={18} color={TEXT} />
+        <Text style={styles.outlineBtnText}>Back</Text>
+      </TouchableOpacity>
+    </ScrollView>
+  );
+
+  const renderStep5 = () => (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+      <MaterialIcons name="check-circle" size={80} color="#22C55E" />
+      <Text style={[styles.stepTitle, { textAlign: 'center', marginTop: 16 }]}>Application Submitted!</Text>
+      <Text style={[styles.stepSubtitle, { textAlign: 'center' }]}>
+        Our admin team will review your details and activate your account within 24-48 hours.
+      </Text>
+      <View style={styles.infoBox}>
+        <MaterialIcons name="info" size={16} color={GOLD} />
+        <Text style={styles.infoText}>You will be notified when your application is approved.</Text>
+      </View>
+      <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/driver/(tabs)' as any)}>
+        <Text style={styles.primaryBtnText}>Go to Driver App</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        {step > 1 && step < 5 && (
+          <TouchableOpacity onPress={() => setStep(s => Math.max(1, s - 1))} style={styles.backBtn}>
+            <MaterialIcons name="arrow-back" size={22} color={TEXT} />
           </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or fill in details</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Full Name */}
-          <Text style={styles.label}>Full Name</Text>
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="person" size={18} color={MUTED} style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="Kwame Mensah" placeholderTextColor={MUTED} value={fullName} onChangeText={setFullName} autoCapitalize="words" returnKeyType="next" />
-          </View>
-
-          {/* Email */}
-          <Text style={styles.label}>Email</Text>
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="email" size={18} color={MUTED} style={styles.inputIcon} />
-            <TextInput style={styles.input} placeholder="you@example.com" placeholderTextColor={MUTED} value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" returnKeyType="next" />
-          </View>
-
-          {/* Phone */}
-          <Text style={styles.label}>Phone Number</Text>
-          <View style={styles.inputWrap}>
-            <Text style={[styles.inputIcon, { color: MUTED, fontSize: 14 }]}>+233</Text>
-            <TextInput style={styles.input} placeholder="241234567" placeholderTextColor={MUTED} value={phone} onChangeText={setPhone} keyboardType="phone-pad" returnKeyType="next" />
-          </View>
-
-          {/* Password */}
-          <Text style={styles.label}>Password</Text>
-          <View style={styles.inputWrap}>
-            <MaterialIcons name="lock" size={18} color={MUTED} style={styles.inputIcon} />
-            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Min. 6 characters" placeholderTextColor={MUTED} value={password} onChangeText={setPassword} secureTextEntry={!showPassword} returnKeyType="done" onSubmitEditing={handleRegister} />
-            <TouchableOpacity onPress={() => setShowPassword(p => !p)} style={styles.eyeBtn}>
-              <MaterialIcons name={showPassword ? 'visibility' : 'visibility-off'} size={18} color={MUTED} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Submit */}
-          <TouchableOpacity style={[styles.submitBtn, loading && { opacity: 0.7 }]} onPress={handleRegister} disabled={loading} activeOpacity={0.85}>
-            {loading ? <ActivityIndicator size="small" color="#000" /> : <Text style={styles.submitBtnText}>Submit Application</Text>}
-          </TouchableOpacity>
-
-          <View style={styles.loginRow}>
-            <Text style={styles.loginText}>Already a driver?  </Text>
-            <TouchableOpacity onPress={() => router.push('/driver/login' as any)}>
-              <Text style={styles.loginLink}>Log in</Text>
-            </TouchableOpacity>
-          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Apply to Drive</Text>
+          <Text style={styles.headerStep}>Step {step} of {TOTAL_STEPS}</Text>
         </View>
+      </View>
 
-        <Text style={styles.footer}>
-          By applying, you agree to HY3N's{' '}
-          <Text style={{ color: GOLD }}>Driver Terms</Text> and{' '}
-          <Text style={{ color: GOLD }}>Privacy Policy</Text>
-        </Text>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      {/* Progress bar */}
+      <View style={styles.progressBar}>
+        <View style={[styles.progressFill, { width: `${(step / TOTAL_STEPS) * 100}%` }]} />
+      </View>
+      <View style={styles.stepLabelsRow}>
+        {stepLabels.map((label, i) => (
+          <Text key={label} style={[styles.stepLabelText, { color: i + 1 <= step ? GOLD : MUTED }]}>{label}</Text>
+        ))}
+      </View>
+
+      {step === 1 && renderStep1()}
+      {step === 2 && renderStep2()}
+      {step === 3 && renderStep3()}
+      {step === 4 && renderStep4()}
+      {step === 5 && renderStep5()}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingVertical: 48 },
-  backBtn: { marginBottom: 16 },
-  logoRow: { alignItems: 'center', marginBottom: 8 },
-  logo: { width: 64, height: 64, borderRadius: 16 },
-  title: { fontSize: 24, fontWeight: '800', color: '#FAFAFA', textAlign: 'center', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: MUTED, textAlign: 'center', marginBottom: 24 },
-  card: { backgroundColor: CARD, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: BORDER },
-  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1E1E1E', borderWidth: 1, borderColor: BORDER, borderRadius: 12, height: 48, gap: 10, marginBottom: 16 },
-  googleIconWrap: { width: 24, height: 24, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  googleText: { color: '#FAFAFA', fontSize: 15, fontWeight: '600' },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, gap: 8 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
-  dividerText: { color: MUTED, fontSize: 12 },
-  label: { color: MUTED, fontSize: 13, fontWeight: '600', marginBottom: 6 },
-  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 12, height: 48, marginBottom: 14 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 12 },
+  backBtn: { padding: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: TEXT },
+  headerStep: { fontSize: 12, color: MUTED, marginTop: 1 },
+  progressBar: { height: 4, marginHorizontal: 16, borderRadius: 2, backgroundColor: BORDER },
+  progressFill: { height: 4, borderRadius: 2, backgroundColor: GOLD },
+  stepLabelsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginTop: 6, marginBottom: 4 },
+  stepLabelText: { fontSize: 9, fontWeight: '600', textTransform: 'uppercase' },
+  stepContent: { padding: 20, gap: 2, paddingBottom: 40 },
+  stepTitle: { fontSize: 22, fontWeight: '800', color: TEXT, marginBottom: 4 },
+  stepSubtitle: { fontSize: 14, color: MUTED, lineHeight: 20, marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: TEXT, marginTop: 12, marginBottom: 8 },
+  label: { color: MUTED, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6, marginTop: 8 },
+  inputWrap: { flexDirection: 'row', alignItems: 'center', backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 12, paddingHorizontal: 12, height: 48, marginBottom: 4 },
   inputIcon: { marginRight: 8 },
-  input: { flex: 1, color: '#FAFAFA', fontSize: 15 },
-  eyeBtn: { padding: 4 },
-  submitBtn: { backgroundColor: GOLD, borderRadius: 12, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 4, marginBottom: 16 },
-  submitBtnText: { color: '#000', fontSize: 16, fontWeight: '800' },
-  loginRow: { flexDirection: 'row', justifyContent: 'center' },
-  loginText: { color: MUTED, fontSize: 14 },
-  loginLink: { color: GOLD, fontSize: 14, fontWeight: '700' },
-  footer: { color: MUTED, fontSize: 12, textAlign: 'center', marginTop: 24, lineHeight: 18 },
+  input: { flex: 1, color: TEXT, fontSize: 15 },
+  googleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, borderRadius: 14, height: 52, gap: 10, marginBottom: 16 },
+  googleIconWrap: { width: 24, height: 24, backgroundColor: '#fff', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  googleBtnText: { color: TEXT, fontSize: 15, fontWeight: '600' },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
+  dividerText: { color: MUTED, fontSize: 13 },
+  serviceCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: BORDER, borderRadius: 14, padding: 14, gap: 12, marginBottom: 8, backgroundColor: CARD },
+  serviceIconBox: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: BORDER },
+  serviceLabel: { fontSize: 15, fontWeight: '700', color: TEXT },
+  serviceDesc: { fontSize: 12, color: MUTED, marginTop: 2 },
+  tierGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 8 },
+  tierCard: { width: '47%', borderWidth: 1.5, borderColor: BORDER, borderRadius: 12, padding: 12, gap: 4, backgroundColor: CARD },
+  tierLabel: { fontSize: 14, fontWeight: '700', color: TEXT },
+  tierDesc: { fontSize: 11, color: MUTED, lineHeight: 15 },
+  uploadRow: { flexDirection: 'row', gap: 10 },
+  uploadBtn: { flex: 1, height: 72, borderWidth: 1.5, borderStyle: 'dashed', borderColor: BORDER, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: CARD },
+  uploadedRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: GOLD + '40', borderRadius: 12, padding: 10, gap: 10, backgroundColor: GOLD + '10' },
+  uploadThumb: { width: 40, height: 40, borderRadius: 8 },
+  infoBox: { flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: GOLD + '40', borderRadius: 12, padding: 12, gap: 8, backgroundColor: GOLD + '10', marginVertical: 16, width: '100%' },
+  infoText: { flex: 1, color: GOLD, fontSize: 13, lineHeight: 18 },
+  primaryBtn: { backgroundColor: GOLD, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  primaryBtnText: { color: '#000', fontSize: 16, fontWeight: '700' },
+  outlineBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 48, borderRadius: 14, borderWidth: 1, borderColor: BORDER, gap: 8, marginTop: 8 },
+  outlineBtnText: { color: TEXT, fontSize: 15, fontWeight: '600' },
+  errorText: { color: '#EF4444', fontSize: 13, textAlign: 'center', marginTop: 4 },
+  linkText: { color: MUTED, fontSize: 14 },
 });

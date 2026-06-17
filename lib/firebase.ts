@@ -12,6 +12,7 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   onAuthStateChanged,
   PhoneAuthProvider,
   signInWithCredential,
