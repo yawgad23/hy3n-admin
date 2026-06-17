@@ -117,6 +117,7 @@ export default function DriverRegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('+233');
   const [momoNumber, setMomoNumber] = useState('+233');
+  const [momoNetwork, setMomoNetwork] = useState<'mtn-gh' | 'vodafone-gh' | 'tigo-gh'>('mtn-gh');
   const [vehicleMake, setVehicleMake] = useState('');
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
@@ -232,6 +233,7 @@ export default function DriverRegisterScreen() {
         phone,
         email: email || user.email || '',
         momo_number: momoNumber,
+        momo_network: momoNetwork,
         vehicle_make: vehicleMake,
         vehicle_model: vehicleModel,
         license_plate: vehiclePlate,
@@ -375,10 +377,33 @@ export default function DriverRegisterScreen() {
         <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="e.g. Accra" placeholderTextColor={MUTED} autoCapitalize="words" />
       </View>
 
-      <Text style={styles.label}>MoMo Number (for earnings)</Text>
+      <Text style={styles.label}>MoMo Number (for daily commission)</Text>
       <View style={styles.inputWrap}>
         <MaterialIcons name="account-balance-wallet" size={18} color={MUTED} style={styles.inputIcon} />
         <TextInput style={styles.input} value={momoNumber} onChangeText={setMomoNumber} placeholder="+233XXXXXXXXX" placeholderTextColor={MUTED} keyboardType="phone-pad" />
+      </View>
+
+      <Text style={styles.label}>MoMo Network</Text>
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+        {[
+          { id: 'mtn-gh' as const, label: 'MTN', color: '#FFCC00' },
+          { id: 'vodafone-gh' as const, label: 'Vodafone', color: '#E60000' },
+          { id: 'tigo-gh' as const, label: 'AirtelTigo', color: '#F77F00' },
+        ].map((net) => (
+          <TouchableOpacity
+            key={net.id}
+            style={[
+              { flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, alignItems: 'center',
+                borderColor: momoNetwork === net.id ? net.color : BORDER,
+                backgroundColor: momoNetwork === net.id ? net.color + '20' : '#1A1A1A' },
+            ]}
+            onPress={() => setMomoNetwork(net.id)}
+          >
+            <Text style={{ color: momoNetwork === net.id ? net.color : MUTED, fontWeight: '700', fontSize: 13 }}>
+              {net.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <Text style={[styles.sectionTitle]}>Select Service Type</Text>

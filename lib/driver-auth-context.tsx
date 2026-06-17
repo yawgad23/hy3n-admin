@@ -22,6 +22,8 @@ export interface DriverProfile {
   total_trips?: number;
   safety_metrics?: { overall_safety_score?: number };
   service_type?: 'car' | 'okada' | 'delivery';
+  momo_number?: string;
+  momo_network?: 'mtn-gh' | 'vodafone-gh' | 'tigo-gh';
   accepted_categories?: string[];
   acceptance_rate?: number;
   preferences?: {

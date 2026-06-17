@@ -37,6 +37,8 @@ export default function DriverEarningsScreen() {
   const [period, setPeriod] = useState<Period>('week');
   const [loading, setLoading] = useState(true);
   const [allCompleted, setAllCompleted] = useState<any[]>([]);
+  const [todayCommission, setTodayCommission] = useState<any>(null);
+  const [commissionLoading, setCommissionLoading] = useState(true);
   const challengeProgress = useRef(new Animated.Value(0)).current;
   const CHALLENGE_TARGET = 10;
   const CHALLENGE_BONUS = 50;
@@ -48,6 +50,23 @@ export default function DriverEarningsScreen() {
       .then((rides: any[]) => setAllCompleted(rides))
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [user]);
+
+  // Load today's commission record
+  useEffect(() => {
+    if (!user) return;
+    const today = new Date().toISOString().split('T')[0];
+    const driverId = user.uid;
+    setCommissionLoading(true);
+    firestoreDB.list(COLLECTIONS.DAILY_COMMISSION, { driver_id: driverId, date: today })
+      .then((records: any[]) => {
+        // Prefer paid/confirmed, then processing, then any
+        const paid = records.find((r: any) => r.status === 'paid' || r.status === 'confirmed');
+        const processing = records.find((r: any) => r.status === 'processing');
+        setTodayCommission(paid || processing || records[0] || null);
+      })
+      .catch(() => setTodayCommission(null))
+      .finally(() => setCommissionLoading(false));
   }, [user]);
 
   // ── Date helpers ─────────────────────────────────────────────────────────
@@ -178,19 +197,44 @@ export default function DriverEarningsScreen() {
               </View>
             </View>
 
-            {/* Daily Fee Reminder */}
-            <View style={[styles.infoCard, { borderColor: GOLD + '50', backgroundColor: '#1A1400' }]}>
-              <MaterialIcons name="info-outline" size={18} color={GOLD} />
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <Text style={[styles.infoTitle, { color: GOLD }]}>Daily HY3N Fee</Text>
-                <Text style={styles.infoSub}>
-                  {serviceType === 'okada' || serviceType === 'delivery'
-                    ? 'Okada / Delivery — flat daily fee'
-                    : 'Car — flat daily fee'}
-                </Text>
+            {/* Today's Commission Status Card */}
+            {commissionLoading ? (
+              <View style={[styles.infoCard, { borderColor: BORDER, backgroundColor: CARD }]}>
+                <ActivityIndicator size="small" color={GOLD} />
+                <Text style={[styles.infoSub, { marginLeft: 10 }]}>Checking commission status...</Text>
               </View>
-              <Text style={[styles.infoAmount, { color: GOLD }]}>GH₵{dailyFee}</Text>
-            </View>
+            ) : todayCommission ? (() => {
+              const isPaid = todayCommission.status === 'paid' || todayCommission.status === 'confirmed';
+              const isProcessing = todayCommission.status === 'processing';
+              const isFailed = todayCommission.status === 'failed';
+              const statusColor = isPaid ? GREEN : isProcessing ? '#F59E0B' : RED;
+              const statusIcon = isPaid ? 'check-circle' : isProcessing ? 'access-time' : 'error-outline';
+              const statusLabel = isPaid ? 'Commission Paid' : isProcessing ? 'Awaiting USSD Approval' : 'Payment Failed';
+              const statusSub = isPaid
+                ? `GH₵${todayCommission.amount || dailyFee} deducted via ${todayCommission.momo_network === 'vodafone-gh' ? 'Vodafone Cash' : todayCommission.momo_network === 'tigo-gh' ? 'AirtelTigo Money' : 'MTN MoMo'}`
+                : isProcessing
+                ? 'Check your phone for the USSD prompt and approve the payment'
+                : 'Payment could not be processed — go online to retry';
+              return (
+                <View style={[styles.infoCard, { borderColor: statusColor + '50', backgroundColor: isPaid ? '#001A00' : isProcessing ? '#1A1400' : '#1A0000' }]}>
+                  <MaterialIcons name={statusIcon as any} size={18} color={statusColor} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.infoTitle, { color: statusColor }]}>{statusLabel}</Text>
+                    <Text style={styles.infoSub}>{statusSub}</Text>
+                  </View>
+                  <Text style={[styles.infoAmount, { color: statusColor }]}>GH₵{todayCommission.amount || dailyFee}</Text>
+                </View>
+              );
+            })() : (
+              <View style={[styles.infoCard, { borderColor: GOLD + '50', backgroundColor: '#1A1400' }]}>
+                <MaterialIcons name="account-balance-wallet" size={18} color={GOLD} />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.infoTitle, { color: GOLD }]}>Daily Platform Fee</Text>
+                  <Text style={styles.infoSub}>Not yet paid today — go online to pay automatically</Text>
+                </View>
+                <Text style={[styles.infoAmount, { color: GOLD }]}>GH₵{dailyFee}</Text>
+              </View>
+            )}
 
             {/* Acceptance Rate */}
             {acceptanceRate !== undefined && (

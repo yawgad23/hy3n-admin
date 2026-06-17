@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Linking, Clipboard } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Linking, ActivityIndicator } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,168 +7,226 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useDriverAuth } from '@/lib/driver-auth-context';
 import { firestoreDB, COLLECTIONS } from '@/lib/firebase';
 import { useColors } from '@/hooks/use-colors';
+import { trpc } from '@/lib/trpc';
 
 const GOLD = '#D4AF37';
 const BG = '#0A0A0A';
 const BORDER = '#2A2A2A';
 const MUTED = '#9CA3AF';
 
-// ─── Commission Gate ──────────────────────────────────────────────────────────
-type CommissionStatus = 'idle' | 'pending' | 'confirmed' | 'rejected';
+// ─── Commission Gate (Automatic Hubtel Charge) ───────────────────────────────
+type CommissionStatus = 'idle' | 'processing' | 'ussd_sent' | 'paid' | 'failed';
 
 function CommissionGate({ driver, onConfirmed }: { driver: any; onConfirmed: () => void }) {
   const colors = useColors();
   const vehicleType = (driver.service_type || driver.vehicle_type || driver.category || '').toLowerCase();
   const isOkadaOrDelivery = vehicleType.includes('okada') || vehicleType.includes('motor') || vehicleType.includes('delivery') || vehicleType.includes('bike');
   const feeAmount = isOkadaOrDelivery ? 30 : 50;
-  const [reference, setReference] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [commissionStatus, setCommissionStatus] = useState<CommissionStatus>('idle');
   const [commissionRecord, setCommissionRecord] = useState<any>(null);
   const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
 
-  // Poll for status updates every 10s while pending
+  const chargeMutation = trpc.commission.charge.useMutation();
+
+  // Determine MoMo network label for display
+  const networkLabels: Record<string, string> = {
+    'mtn-gh': 'MTN MoMo',
+    'vodafone-gh': 'Vodafone Cash',
+    'tigo-gh': 'AirtelTigo Money',
+  };
+  const momoNetwork = driver.momo_network || 'mtn-gh';
+  const networkLabel = networkLabels[momoNetwork] || 'MoMo';
+  const momoNumber = driver.momo_number || '';
+
+  // Poll Firestore every 8s while USSD is pending (waiting for driver to approve on phone)
   useEffect(() => {
-    if (commissionStatus !== 'pending') return;
+    if (commissionStatus !== 'ussd_sent') return;
     const driverId = driver.user_id || driver.id;
     const today = new Date().toISOString().split('T')[0];
     const poll = setInterval(() => {
       firestoreDB.list(COLLECTIONS.DAILY_COMMISSION, { driver_id: driverId, date: today })
         .then((records: any[]) => {
-          const rec = records[0];
-          if (!rec) return;
-          setCommissionRecord(rec);
-          if (rec.status === 'confirmed') {
-            setCommissionStatus('confirmed');
+          const rec = records.find((r: any) => r.status === 'paid' || r.status === 'confirmed');
+          if (rec) {
+            setCommissionRecord(rec);
+            setCommissionStatus('paid');
             clearInterval(poll);
-            setTimeout(onConfirmed, 1500);
-          } else if (rec.status === 'rejected') {
-            setCommissionStatus('rejected');
+            setTimeout(onConfirmed, 1800);
+          }
+          // Also check for failed
+          const failed = records.find((r: any) => r.status === 'failed');
+          if (failed && !rec) {
+            setCommissionRecord(failed);
+            setCommissionStatus('failed');
             clearInterval(poll);
           }
         })
         .catch(() => {});
-    }, 10000);
+    }, 8000);
     return () => clearInterval(poll);
   }, [commissionStatus]);
 
-  const handleSubmit = async () => {
-    if (!reference.trim()) {
-      setError('Please enter your MoMo reference number.');
+  const handleCharge = async () => {
+    if (!momoNumber) {
+      setError('No MoMo number found on your profile. Please contact support.');
       return;
     }
     setError('');
-    setSubmitting(true);
+    setCommissionStatus('processing');
+    const driverId = driver.user_id || driver.id;
+    const today = new Date().toISOString().split('T')[0];
     try {
-      const today = new Date().toISOString().split('T')[0];
-      const driverId = driver.user_id || driver.id;
-      const rec = await firestoreDB.create(COLLECTIONS.DAILY_COMMISSION, {
-        driver_id: driverId,
-        driver_name: driver.full_name,
+      const result = await chargeMutation.mutateAsync({
+        driverId,
+        driverName: driver.full_name || 'Driver',
+        momoNumber,
+        momoNetwork,
+        serviceType: driver.service_type || 'car',
         date: today,
-        amount: feeAmount,
-        reference: reference.trim(),
-        status: 'pending',
-        submitted_at: new Date().toISOString(),
       });
-      setCommissionRecord(rec);
-      setCommissionStatus('pending');
-    } catch {
-      setError('Failed to submit. Please try again.');
-    } finally {
-      setSubmitting(false);
+
+      if (result.success) {
+        // Write commission record to Firestore with status 'processing'
+        const rec = await firestoreDB.create(COLLECTIONS.DAILY_COMMISSION, {
+          driver_id: driverId,
+          driver_name: driver.full_name,
+          date: today,
+          amount: feeAmount,
+          momo_number: momoNumber,
+          momo_network: momoNetwork,
+          hubtel_transaction_id: result.transactionId,
+          hubtel_reference: result.clientReference,
+          status: 'processing',
+          charge_method: 'hubtel_auto',
+          submitted_at: new Date().toISOString(),
+        });
+        setCommissionRecord(rec);
+        setCommissionStatus('ussd_sent');
+      } else {
+        // Hubtel charge failed — fall back to showing error with retry
+        setError(result.message || 'Payment initiation failed. Please try again.');
+        setCommissionStatus('failed');
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Failed to initiate payment. Please try again.');
+      setCommissionStatus('failed');
     }
   };
 
-  const handleResubmit = async () => {
-    // Delete rejected record, go back to idle
-    if (commissionRecord?.id) {
-      try { await firestoreDB.delete(COLLECTIONS.DAILY_COMMISSION, commissionRecord.id); } catch {}
-    }
-    setCommissionRecord(null);
-    setReference('');
+  const handleRetry = () => {
     setCommissionStatus('idle');
     setError('');
+    setCommissionRecord(null);
   };
 
-  const handleCopyNumber = () => {
-    Clipboard.setString('0546728330');
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  // ── Confirmed ──
-  if (commissionStatus === 'confirmed') {
+  // ── Paid / Confirmed ──
+  if (commissionStatus === 'paid') {
     return (
       <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
         <MaterialIcons name="check-circle" size={72} color="#22C55E" />
-        <Text style={[styles.gateTitle, { color: '#22C55E' }]}>Commission Confirmed!</Text>
+        <Text style={[styles.gateTitle, { color: '#22C55E' }]}>Commission Paid!</Text>
         <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
-          Your payment has been verified. You're all set — going online now!
+          GH₵{feeAmount} deducted from your {networkLabel}. You're all set — going online now!
         </Text>
       </View>
     );
   }
 
-  // ── Pending ──
-  if (commissionStatus === 'pending') {
+  // ── USSD Sent (waiting for driver to approve on phone) ──
+  if (commissionStatus === 'ussd_sent') {
     return (
-      <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={styles.gateContainer}
+      >
         <View style={[styles.gateIconBox, { backgroundColor: '#F59E0B20' }]}>
-          <MaterialIcons name="access-time" size={40} color="#F59E0B" />
+          <MaterialIcons name="phone-android" size={40} color="#F59E0B" />
         </View>
-        <Text style={[styles.gateTitle, { color: colors.foreground }]}>Payment Submitted</Text>
+        <Text style={[styles.gateTitle, { color: colors.foreground }]}>Check Your Phone</Text>
         <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
-          Waiting for admin confirmation. This usually takes a few minutes. The app will update automatically.
+          A USSD prompt has been sent to your {networkLabel} number. Approve the payment of{' '}
+          <Text style={{ color: GOLD, fontWeight: '700' }}>GH₵{feeAmount}</Text> on your phone to continue.
         </Text>
         <View style={[styles.commissionCard, { backgroundColor: colors.surface, borderColor: '#F59E0B40' }]}>
-          <Text style={[styles.commissionLabel, { color: colors.muted }]}>Reference Submitted</Text>
-          <Text style={[styles.commissionAmount, { color: '#F59E0B', fontSize: 18 }]}>
-            {commissionRecord?.reference || reference}
+          <Text style={[styles.commissionLabel, { color: colors.muted }]}>Awaiting Your Approval</Text>
+          <Text style={[styles.commissionAmount, { color: GOLD }]}>GH₵{feeAmount}.00</Text>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.commissionMomo, { color: colors.muted }]}>
+            Network: <Text style={{ color: colors.foreground, fontWeight: '700' }}>{networkLabel}</Text>
           </Text>
-          <Text style={[styles.commissionMomo, { color: colors.muted, marginTop: 4 }]}>
-            Amount: <Text style={{ color: colors.foreground, fontWeight: '700' }}>GH₵{feeAmount}</Text>
+          <Text style={[styles.commissionMomo, { color: colors.muted }]}>
+            Number: <Text style={{ color: colors.foreground, fontWeight: '700' }}>{momoNumber}</Text>
           </Text>
         </View>
-        <View style={styles.pendingDots}>
-          <Text style={{ color: '#F59E0B', fontSize: 13 }}>Checking every 10 seconds...</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <ActivityIndicator size="small" color="#F59E0B" />
+          <Text style={{ color: '#F59E0B', fontSize: 13 }}>Waiting for your approval...</Text>
         </View>
+        <TouchableOpacity
+          style={[styles.submitBtn, { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: BORDER, marginTop: 4 }]}
+          onPress={handleRetry}
+        >
+          <Text style={[styles.submitBtnText, { color: MUTED }]}>Cancel &amp; Try Again</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => Linking.openURL('https://wa.me/233546728330?text=I%20need%20help%20with%20my%20daily%20commission%20payment')}>
+          <Text style={{ color: colors.muted, fontSize: 13, textDecorationLine: 'underline', marginTop: 4 }}>Need help? Contact Support</Text>
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
+  // ── Processing (API call in progress) ──
+  if (commissionStatus === 'processing') {
+    return (
+      <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={GOLD} />
+        <Text style={[styles.gateTitle, { color: colors.foreground, marginTop: 16 }]}>Initiating Payment...</Text>
+        <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
+          Contacting {networkLabel}. A USSD prompt will appear on your phone shortly.
+        </Text>
       </View>
     );
   }
 
-  // ── Rejected ──
-  if (commissionStatus === 'rejected') {
+  // ── Failed ──
+  if (commissionStatus === 'failed') {
     return (
-      <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
+      <ScrollView
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={styles.gateContainer}
+      >
         <View style={[styles.gateIconBox, { backgroundColor: '#EF444420' }]}>
-          <MaterialIcons name="cancel" size={40} color="#EF4444" />
+          <MaterialIcons name="error-outline" size={40} color="#EF4444" />
         </View>
-        <Text style={[styles.gateTitle, { color: '#EF4444' }]}>Payment Rejected</Text>
+        <Text style={[styles.gateTitle, { color: '#EF4444' }]}>Payment Failed</Text>
         <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
-          Your commission payment was rejected. Please resubmit with the correct MoMo reference number.
+          {error || 'The payment could not be processed. Please check your MoMo balance and try again.'}
         </Text>
         <View style={[styles.commissionCard, { backgroundColor: colors.surface, borderColor: '#EF444440' }]}>
-          <Text style={[styles.commissionLabel, { color: '#EF4444' }]}>Rejected Reference</Text>
-          <Text style={[styles.commissionAmount, { color: '#EF4444', fontSize: 18 }]}>
-            {commissionRecord?.reference}
+          <Text style={[styles.commissionLabel, { color: colors.muted }]}>Daily Platform Fee</Text>
+          <Text style={[styles.commissionAmount, { color: GOLD }]}>GH₵{feeAmount}.00</Text>
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <Text style={[styles.commissionMomo, { color: colors.muted }]}>
+            Network: <Text style={{ color: colors.foreground, fontWeight: '700' }}>{networkLabel}</Text>
+          </Text>
+          <Text style={[styles.commissionMomo, { color: colors.muted }]}>
+            Number: <Text style={{ color: colors.foreground, fontWeight: '700' }}>{momoNumber}</Text>
           </Text>
         </View>
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: GOLD }]}
-          onPress={handleResubmit}
+          onPress={handleRetry}
         >
-          <Text style={styles.submitBtnText}>Resubmit Payment</Text>
+          <Text style={styles.submitBtnText}>Try Again</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => Linking.openURL('mailto:hello@ridehy3n.com')}>
-          <Text style={{ color: colors.muted, fontSize: 13, textDecorationLine: 'underline' }}>Contact Support</Text>
+        <TouchableOpacity onPress={() => Linking.openURL('https://wa.me/233546728330?text=I%20need%20help%20with%20my%20daily%20commission%20payment')}>
+          <Text style={{ color: colors.muted, fontSize: 13, textDecorationLine: 'underline', marginTop: 4 }}>Contact Support</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     );
   }
 
-  // ── Idle (submit form) ──
+  // ── Idle (initial state — show fee info and Pay Now button) ──
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -183,54 +241,48 @@ function CommissionGate({ driver, onConfirmed }: { driver: any; onConfirmed: () 
         {driver.full_name?.split(' ')[0]}!
       </Text>
       <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
-        Pay your daily platform fee via MoMo to start receiving rides today.
+        Pay your daily platform fee to start receiving rides today.
       </Text>
 
       <View style={[styles.commissionCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
         <Text style={[styles.commissionLabel, { color: colors.muted }]}>Daily Platform Fee</Text>
         <Text style={[styles.commissionAmount, { color: GOLD }]}>GH₵ {feeAmount}.00</Text>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <View style={styles.momoRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.commissionMomo, { color: colors.muted }]}>
-              Send to MoMo: <Text style={{ color: colors.foreground, fontWeight: '700' }}>0546728330</Text>
-            </Text>
-            <Text style={[styles.commissionMomo, { color: colors.muted, marginTop: 4 }]}>
-              Name: <Text style={{ color: colors.foreground, fontWeight: '700' }}>HY3N Technologies</Text>
-            </Text>
-          </View>
-          <TouchableOpacity
-            style={[styles.copyBtn, { backgroundColor: copied ? '#22C55E20' : GOLD + '20', borderColor: copied ? '#22C55E40' : GOLD + '40' }]}
-            onPress={handleCopyNumber}
-          >
-            <MaterialIcons name={copied ? 'check' : 'content-copy'} size={16} color={copied ? '#22C55E' : GOLD} />
-            <Text style={{ color: copied ? '#22C55E' : GOLD, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-              {copied ? 'Copied' : 'Copy'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={[styles.commissionMomo, { color: colors.muted, textAlign: 'center' }]}>
+          Will be charged to your{' '}
+          <Text style={{ color: colors.foreground, fontWeight: '700' }}>{networkLabel}</Text>
+        </Text>
+        {momoNumber ? (
+          <Text style={[styles.commissionMomo, { color: colors.muted, textAlign: 'center', marginTop: 2 }]}>
+            Number: <Text style={{ color: colors.foreground, fontWeight: '700' }}>{momoNumber}</Text>
+          </Text>
+        ) : (
+          <Text style={{ color: '#EF4444', fontSize: 12, textAlign: 'center', marginTop: 4 }}>
+            No MoMo number on file. Contact support.
+          </Text>
+        )}
       </View>
 
-      <View style={[styles.inputBox, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <Text style={[styles.inputLabel, { color: colors.muted }]}>MoMo Reference Number</Text>
-        <TextInput
-          style={[styles.inputField, { color: colors.foreground }]}
-          placeholder="e.g. 1234567890"
-          placeholderTextColor={colors.muted}
-          value={reference}
-          onChangeText={setReference}
-          returnKeyType="done"
-        />
+      <View style={[styles.ussdNote, { backgroundColor: '#1A1A1A', borderColor: BORDER }]}>
+        <MaterialIcons name="info-outline" size={16} color={MUTED} style={{ marginTop: 1 }} />
+        <Text style={{ color: MUTED, fontSize: 12, flex: 1, lineHeight: 18 }}>
+          After tapping Pay Now, you will receive a USSD prompt on your phone. Approve it to complete the payment.
+        </Text>
       </View>
 
       {!!error && <Text style={styles.errorText}>{error}</Text>}
 
       <TouchableOpacity
-        style={[styles.submitBtn, { backgroundColor: GOLD, opacity: submitting ? 0.7 : 1 }]}
-        onPress={handleSubmit}
-        disabled={submitting}
+        style={[styles.submitBtn, { backgroundColor: GOLD, opacity: !momoNumber ? 0.5 : 1 }]}
+        onPress={handleCharge}
+        disabled={!momoNumber}
       >
-        <Text style={styles.submitBtnText}>{submitting ? 'Submitting...' : 'Submit Payment'}</Text>
+        <MaterialIcons name="payments" size={20} color="#000" style={{ marginRight: 6 }} />
+        <Text style={styles.submitBtnText}>Pay GH₵{feeAmount} via {networkLabel}</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={() => Linking.openURL('https://wa.me/233546728330?text=I%20need%20help%20with%20my%20daily%20commission%20payment')}>
+        <Text style={{ color: colors.muted, fontSize: 13, textDecorationLine: 'underline', marginTop: 4 }}>Need help? Contact Support</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -652,9 +704,19 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 52,
     borderRadius: 16,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
+  },
+  ussdNote: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
   },
   submitBtnText: { color: '#000', fontSize: 16, fontWeight: '700' },
   staticTabBar: {

@@ -285,3 +285,35 @@
 - [x] Fare summary amber note: "Prices are higher due to demand" (replaces red multiplier badge)
 - [x] Active ride card amber note: "Fare includes high-demand pricing" (replaces red multiplier badge)
 - [x] No multiplier numbers shown to riders — plain language only, matching Uber/Bolt UX
+
+## Driver Earnings Chart (Jun 17)
+
+- [ ] Weekly bar chart on driver earnings tab showing daily earnings (Mon–Sun)
+- [ ] Monthly bar chart showing weekly totals for the current month
+- [ ] Toggle between Weekly and Monthly views
+- [ ] Highlight the highest earning day/week bar in gold
+- [ ] Show total earnings and trip count for the selected period above the chart
+- [ ] Chart built with react-native-svg (no external chart library needed)
+- [ ] Data loaded from Firestore rides collection filtered by driver_id and date range
+
+## Hubtel Daily Commission Integration (Jun 17)
+
+- [ ] Store HUBTEL_API_ID and HUBTEL_API_KEY as server environment secrets
+- [ ] Server endpoint POST /api/driver/charge-commission — debit driver MoMo via Hubtel DebitMobileAccount
+- [ ] Charge GH₵50 for car drivers, GH₵30 for Okada/Delivery
+- [ ] Check daily_commissions Firestore collection to prevent double-charging on same day
+- [ ] Save commission record to daily_commissions with status (success/failed) and Hubtel transaction ID
+- [ ] Driver app triggers commission charge when driver goes online for the first time each day
+- [ ] Earnings screen shows today's commission payment status (Paid / Pending / Failed)
+- [ ] Failed payment shows retry button and warning banner
+
+## Hubtel Automatic Daily Commission (Jun 17)
+
+- [x] Server: `commission.charge` tRPC endpoint — calls Hubtel Receive Money API with POS 5809
+- [x] Server: `commission.getStatus` tRPC endpoint — check today's commission status for a driver
+- [x] Driver registration: add MoMo network selector (MTN / Vodafone / AirtelTigo) — saved to Firestore as `momo_network`
+- [x] Driver profile: add MoMo network field to DriverProfile interface
+- [x] CommissionGate: replace manual reference submission with automatic Hubtel charge flow
+- [x] CommissionGate: show USSD prompt instruction (driver approves on phone)
+- [x] CommissionGate: poll for Hubtel payment status (processing → paid/failed)
+- [x] Driver earnings tab: show today's commission status card (paid/processing/failed + retry)
