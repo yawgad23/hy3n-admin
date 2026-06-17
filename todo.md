@@ -218,3 +218,16 @@
 - [x] Rider home map shows a live "cars nearby" indicator when no active ride is in progress
 - [x] Driver app writes current_lat/current_lng to Firestore when going online so riders can see nearby cars
 - [x] Rider app polls nearby available drivers and passes them into the mobile map component
+
+## Surge Badge & Cancel-With-Reason (Jun 17)
+
+- [ ] Surge pricing badge on each category card (1.2×/1.5×/2× gold badge when SURGE > 1)
+- [ ] Cancel-with-reason modal (Driver taking too long, Wrong vehicle, Changed plans, etc.) saves reason to Firestore
+
+## Driver Ride Category Selector (Jun 17)
+
+- [x] Driver app: category selector card on home screen (when online, no active trip)
+- [x] Vehicle-type restrictions: Standard car → Standard/Comfort/Executive; Okada → Okada only; Delivery → Express Delivery only; Kantanka → all categories; Comfort → Standard + Comfort + Executive
+- [x] Selected categories saved to Firestore driver_profiles and AsyncStorage
+- [x] Incoming ride request listener filters to only show rides matching driver's selected categories
+- [x] Category badges shown on home screen when categories are selected

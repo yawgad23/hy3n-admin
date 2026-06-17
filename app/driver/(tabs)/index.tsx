@@ -429,6 +429,8 @@ export default function DriverHomeScreen() {
   const [driverDestination, setDriverDestination] = useState<string>('');
   const [destModalVisible, setDestModalVisible] = useState(false);
   const [destInput, setDestInput] = useState('');
+  const [acceptedCategories, setAcceptedCategories] = useState<string[]>([]);
+  const [catModalVisible, setCatModalVisible] = useState(false);
   // ─── Waiting Timer ────────────────────────────────────────────────────────────
   const [waitSeconds, setWaitSeconds] = useState(0);
   const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -456,12 +458,34 @@ export default function DriverHomeScreen() {
     }
   };
 
-  // Load persisted destination on mount
+  // Load persisted destination and categories on mount
   useEffect(() => {
     import('@react-native-async-storage/async-storage').then(({ default: AS }) => {
       AS.getItem('hy3n_driver_destination').then(v => { if (v) setDriverDestination(v); }).catch(() => {});
+      AS.getItem('hy3n_driver_categories').then(v => {
+        if (v) { try { setAcceptedCategories(JSON.parse(v)); } catch {} }
+        else if (driverProfile?.accepted_categories?.length) { setAcceptedCategories(driverProfile.accepted_categories); }
+      }).catch(() => {});
     });
   }, []);
+  const saveCategories = async (cats: string[]) => {
+    const { default: AS } = await import('@react-native-async-storage/async-storage');
+    setAcceptedCategories(cats);
+    await AS.setItem('hy3n_driver_categories', JSON.stringify(cats));
+    if (driverProfile?.id) {
+      firestoreDB.update(COLLECTIONS.DRIVER_PROFILES, driverProfile.id, { accepted_categories: cats }).catch(() => {});
+    }
+  };
+  // Category compatibility matrix
+  const isKantanka = (driverProfile?.vehicle_make || '').toLowerCase().includes('kantanka');
+  const serviceType = driverProfile?.service_type || 'car';
+  const allowedCategories: string[] = isKantanka
+    ? ['standard', 'comfort', 'kantanka', 'executive', 'okada', 'express_delivery']
+    : serviceType === 'okada'
+    ? ['okada']
+    : serviceType === 'delivery'
+    ? ['express_delivery']
+    : ['standard', 'comfort', 'executive']; // regular car: comfort can also do standard
 
   const saveDestination = async (dest: string) => {
     const { default: AS } = await import('@react-native-async-storage/async-storage');
@@ -523,6 +547,11 @@ export default function DriverHomeScreen() {
           if (prefs.longTripsOnly) {
             const dist = r.distance_km || r.distance || 0;
             if (dist > 0 && dist < 10) return false;
+          }
+          // Category filter: only show rides matching driver's accepted categories
+          if (acceptedCategories.length > 0) {
+            const rideCategory = (r.category || r.categoryId || '').toLowerCase();
+            if (rideCategory && !acceptedCategories.includes(rideCategory)) return false;
           }
           // Set Destination filter: only show rides heading toward driver's chosen area
           if (driverDestination) {
@@ -887,6 +916,111 @@ export default function DriverHomeScreen() {
           </View>
         )}
 
+        {/* Ride Category Selector Card */}
+        {isOnline && !activeTrip && (
+          <View style={styles.destCard}>
+            <View style={styles.destCardLeft}>
+              <MaterialIcons name="category" size={18} color={acceptedCategories.length > 0 ? GOLD : MUTED} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.destCardLabel}>Ride Categories</Text>
+                {acceptedCategories.length > 0 ? (
+                  <Text style={styles.destCardValue} numberOfLines={1}>
+                    {acceptedCategories.map(id => RIDE_CATEGORIES.find(c => c.id === id)?.name || id).join(', ')}
+                  </Text>
+                ) : (
+                  <Text style={styles.destCardPlaceholder}>All categories (tap to restrict)</Text>
+                )}
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {acceptedCategories.length > 0 && (
+                <TouchableOpacity style={styles.destClearBtn} onPress={() => saveCategories([])} activeOpacity={0.7}>
+                  <MaterialIcons name="close" size={16} color={MUTED} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={[styles.destSetBtn, acceptedCategories.length > 0 && { backgroundColor: GOLD + '20', borderColor: GOLD }]}
+                onPress={() => setCatModalVisible(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.destSetBtnText, acceptedCategories.length > 0 && { color: GOLD }]}>Choose</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+        {/* Category Selector Modal */}
+        <Modal visible={catModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setCatModalVisible(false)}>
+          <View style={styles.destModal}>
+            <View style={styles.destModalHeader}>
+              <MaterialIcons name="category" size={22} color={GOLD} />
+              <Text style={styles.destModalTitle}>Ride Categories</Text>
+              <TouchableOpacity onPress={() => setCatModalVisible(false)}>
+                <MaterialIcons name="close" size={22} color={MUTED} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.destModalDesc}>
+              {isKantanka
+                ? 'Your Kantanka vehicle can work under all categories.'
+                : serviceType === 'okada'
+                ? 'Okada vehicles work under the Okada category only.'
+                : serviceType === 'delivery'
+                ? 'Delivery vehicles work under Express Delivery only.'
+                : 'Select the categories you want to accept. Comfort vehicles can also do Standard rides.'}
+            </Text>
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+              {RIDE_CATEGORIES.filter(cat => allowedCategories.includes(cat.id)).map(cat => {
+                const isSelected = acceptedCategories.includes(cat.id);
+                const toggle = () => {
+                  setAcceptedCategories(prev =>
+                    prev.includes(cat.id) ? prev.filter(id => id !== cat.id) : [...prev, cat.id]
+                  );
+                };
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    onPress={toggle}
+                    activeOpacity={0.8}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 14,
+                      paddingVertical: 14, paddingHorizontal: 4,
+                      borderBottomWidth: 0.5, borderBottomColor: BORDER,
+                    }}
+                  >
+                    <View style={{
+                      width: 24, height: 24, borderRadius: 6, borderWidth: 2,
+                      borderColor: isSelected ? GOLD : BORDER,
+                      backgroundColor: isSelected ? GOLD : 'transparent',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      {isSelected && <MaterialIcons name="check" size={14} color="#000" />}
+                    </View>
+                    <MaterialIcons name={cat.icon as any} size={20} color={isSelected ? GOLD : MUTED} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: isSelected ? TEXT : MUTED, fontWeight: '700', fontSize: 14 }}>{cat.name}</Text>
+                      <Text style={{ color: MUTED, fontSize: 12, marginTop: 1 }}>{cat.description}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+            <View style={[styles.destModalActions, { marginTop: 16 }]}>
+              <TouchableOpacity
+                style={[styles.destModalBtn, { backgroundColor: '#1A1A1A', borderColor: BORDER }]}
+                onPress={() => { setAcceptedCategories([]); saveCategories([]); setCatModalVisible(false); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.destModalBtnText, { color: MUTED }]}>All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.destModalBtn, { backgroundColor: GOLD, borderColor: GOLD, flex: 1 }]}
+                onPress={() => { saveCategories(acceptedCategories); setCatModalVisible(false); }}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.destModalBtnText, { color: '#000' }]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
         {/* Set Destination Modal */}
         <Modal visible={destModalVisible} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setDestModalVisible(false)}>
           <View style={styles.destModal}>

@@ -22,6 +22,7 @@ export interface DriverProfile {
   total_trips?: number;
   safety_metrics?: { overall_safety_score?: number };
   service_type?: 'car' | 'okada' | 'delivery';
+  accepted_categories?: string[];
   acceptance_rate?: number;
   preferences?: {
     notifications?: boolean;
