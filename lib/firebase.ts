@@ -15,6 +15,8 @@ import {
   onAuthStateChanged,
   PhoneAuthProvider,
   signInWithCredential,
+  GoogleAuthProvider,
+  signInWithPopup,
   updateProfile,
   deleteUser,
   type User,
@@ -106,6 +108,14 @@ export const COLLECTIONS = {
 export const firebaseAuth = {
   async loginWithEmail(email: string, password: string) {
     const cred = await signInWithEmailAndPassword(auth, email, password);
+    return cred.user;
+  },
+
+  async loginWithGoogle() {
+    const provider = new GoogleAuthProvider();
+    provider.addScope('email');
+    provider.addScope('profile');
+    const cred = await signInWithPopup(auth, provider);
     return cred.user;
   },
 
