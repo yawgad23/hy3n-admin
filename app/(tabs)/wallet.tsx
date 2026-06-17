@@ -15,6 +15,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useAuth } from "@/lib/auth-context";
 import { firestoreDB } from "@/lib/firebase";
 import { notifyWalletTopUp } from "@/lib/notifications";
+import { dispatchService } from "@/lib/dispatch";
 
 const GOLD = "#D4AF37";
 const GREEN = "#006B3F";
@@ -63,15 +64,23 @@ function formatDate(iso: string) {
 }
 
 export default function WalletScreen() {
-  const { user, riderProfile } = useAuth();
-  const [balance, setBalance] = useState(152.73);
-  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
+  const { user } = useAuth();
+  const [balance, setBalance] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Load real balance from Firestore (starts at 0 for new users)
   useEffect(() => {
-    if (riderProfile?.wallet_balance !== undefined) setBalance(riderProfile.wallet_balance);
-  }, [riderProfile]);
+    if (!user) return;
+    setBalanceLoading(true);
+    dispatchService.getWalletBalance(user.uid)
+      .then(bal => setBalance(bal))
+      .catch(() => setBalance(0))
+      .finally(() => setBalanceLoading(false));
+  }, [user]);
 
+  // Load real transactions from Firestore
   useEffect(() => {
     if (!user) return;
     firestoreDB.list('WalletTransactions', { user_id: user.uid }, 'date', 'desc', 30)
@@ -139,7 +148,11 @@ export default function WalletScreen() {
               </View>
             </View>
             <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginBottom: 4 }}>Available Balance</Text>
-            <Text style={{ color: "#fff", fontSize: 38, fontWeight: "bold", letterSpacing: -1 }}>GH₵{balance.toFixed(2)}</Text>
+            {balanceLoading ? (
+              <ActivityIndicator color="#fff" size="large" style={{ marginVertical: 8 }} />
+            ) : (
+              <Text style={{ color: "#fff", fontSize: 38, fontWeight: "bold", letterSpacing: -1 }}>GH₵{balance.toFixed(2)}</Text>
+            )}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: GOLD }} />
               <Text style={{ color: "rgba(255,255,255,0.6)", fontSize: 11 }}>Last updated just now</Text>

@@ -22,6 +22,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAuth } from "@/lib/auth-context";
 import { firestoreDB, COLLECTIONS } from "@/lib/firebase";
+import { dispatchService, getSurgeMultiplier, generateRidePin, calculateETA, VEHICLE_COLOURS, type RideRequest as DispatchRide } from "@/lib/dispatch";
 import * as ExpoLocation from "expo-location";
 import {
   RIDE_CATEGORIES,
@@ -85,10 +86,21 @@ interface ActiveRide {
   driverRating?: number;
   driverVehicle?: string;
   driverPlate?: string;
+  driverColour?: string;
+  driverColourHex?: string;
+  driverPhoto?: string;
+  driverTotalTrips?: number;
+  driverPhone?: string;
+  ridePin?: string;
+  surgeMultiplier?: number;
   eta?: number;
+  etaSeconds?: number;  // live countdown in seconds
   waitingFee?: number;
   tipAmount?: number;
   finalFare?: number;
+  firestoreId?: string;  // real Firestore document ID
+  cancelReason?: string;
+  rideOptions?: { ac: boolean; pet_friendly: boolean; extra_luggage: boolean; wheelchair_accessible: boolean };
 }
 
 const DEFAULT_LOCATION: [number, number] = [5.6037, -0.187]; // Accra, Ghana
@@ -102,11 +114,8 @@ const STATUS_LABELS: Record<string, string> = {
   cancelled: "Ride Cancelled",
 };
 
-const MOCK_DRIVERS = [
-  { name: "Kwame Asante", rating: 4.9, vehicle: "Toyota Camry (White)", plate: "GR 1234-24" },
-  { name: "Ama Owusu", rating: 4.8, vehicle: "Hyundai Sonata (Silver)", plate: "GR 5678-23" },
-  { name: "Kofi Mensah", rating: 4.7, vehicle: "Honda Accord (Black)", plate: "GR 9012-24" },
-];
+// Surge multiplier computed once per session
+const SURGE = getSurgeMultiplier();
 
 export default function HomeScreen() {
   const { user, riderProfile } = useAuth();
@@ -172,6 +181,12 @@ export default function HomeScreen() {
   const [stops, setStops] = useState<Array<Location | null>>([]);
   // Trip Receipt
   const [showReceipt, setShowReceipt] = useState(false);
+  // Cancel with reason
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  // Ride options (AC, pet, luggage)
+  const [rideOptions, setRideOptions] = useState({ ac: false, pet_friendly: false, extra_luggage: false, wheelchair_accessible: false });
+  const [showRideOptions, setShowRideOptions] = useState(false);
   // In-ride chat
   const [showChat, setShowChat] = useState(false);
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; text: string; fromRider: boolean; time: string }>>([]);
@@ -198,47 +213,57 @@ export default function HomeScreen() {
     });
   }, []);
 
-  // Simulate driver progression
+  // Real Firestore ride listener — subscribes to live ride updates when a Firestore ride ID is set
+  const firestoreUnsubRef = useRef<(() => void) | null>(null);
   useEffect(() => {
-    if (!activeRide || activeRide.status === "completed" || activeRide.status === "cancelled") return;
-    if (activeRide.status === "searching") {
-      const t = setTimeout(() => {
-        const driver = MOCK_DRIVERS[Math.floor(Math.random() * MOCK_DRIVERS.length)];
-        const eta = Math.floor(Math.random() * 5) + 3;
-        setActiveRide(prev => prev ? {
+    if (!activeRide?.firestoreId) return;
+    // Unsubscribe from any previous listener
+    if (firestoreUnsubRef.current) firestoreUnsubRef.current();
+    const unsub = dispatchService.listenToRide(activeRide.firestoreId, (ride: DispatchRide) => {
+      setActiveRide(prev => {
+        if (!prev) return null;
+        const driver = ride.driver;
+        const etaMin = driver
+          ? calculateETA({ lat: driver.location.lat, lng: driver.location.lng }, { lat: prev.destination.lat, lng: prev.destination.lng })
+          : prev.eta;
+        // Fire notifications on status transitions
+        if (ride.status !== prev.status) {
+          if (ride.status === 'matched' && driver) notifyDriverFound(driver.name, etaMin ?? 5);
+          if (ride.status === 'driver_arriving' && driver) notifyDriverArriving(driver.name);
+          if (ride.status === 'in_progress') notifyTripStarted(prev.destination.name);
+          if (ride.status === 'completed') notifyTripCompleted(prev.fare);
+        }
+        return {
           ...prev,
-          status: "matched",
-          driverName: driver.name,
-          driverRating: driver.rating,
-          driverVehicle: driver.vehicle,
-          driverPlate: driver.plate,
-          eta,
-        } : null);
-        notifyDriverFound(driver.name, eta);
-      }, 4000);
-      return () => clearTimeout(t);
-    }
-    if (activeRide.status === "matched") {
-      const t = setTimeout(() => {
-        setActiveRide(prev => prev ? { ...prev, status: "driver_arriving", eta: Math.floor(Math.random() * 3) + 1 } : null);
-        if (activeRide.driverName) notifyDriverArriving(activeRide.driverName);
-      }, 5000);
-      return () => clearTimeout(t);
-    }
-    if (activeRide.status === "driver_arriving") {
-      const t = setTimeout(() => {
-        setActiveRide(prev => prev ? { ...prev, status: "in_progress", eta: prev.duration } : null);
-        notifyTripStarted(activeRide.destination.name);
-      }, 6000);
-      return () => clearTimeout(t);
-    }
-    if (activeRide.status === "in_progress") {
-      const t = setTimeout(() => {
-        setActiveRide(prev => prev ? { ...prev, status: "completed", finalFare: prev.fare } : null);
-        notifyTripCompleted(activeRide.fare);
-      }, 8000);
-      return () => clearTimeout(t);
-    }
+          status: ride.status as ActiveRide['status'],
+          driverName: driver?.name ?? prev.driverName,
+          driverRating: driver?.rating ?? prev.driverRating,
+          driverVehicle: driver ? `${driver.vehicle_make} ${driver.vehicle_model}` : prev.driverVehicle,
+          driverPlate: driver?.plate ?? prev.driverPlate,
+          driverColour: driver?.vehicle_colour ?? prev.driverColour,
+          driverColourHex: driver?.vehicle_colour_hex ?? prev.driverColourHex,
+          driverTotalTrips: driver?.total_trips ?? prev.driverTotalTrips,
+          driverPhone: driver?.phone ?? prev.driverPhone,
+          eta: etaMin ?? prev.eta,
+          etaSeconds: (etaMin ?? 0) * 60,
+          finalFare: ride.status === 'completed' ? prev.fare : prev.finalFare,
+        };
+      });
+    });
+    firestoreUnsubRef.current = unsub;
+    return () => unsub();
+  }, [activeRide?.firestoreId]);
+
+  // ETA countdown timer — ticks every second when driver is assigned
+  useEffect(() => {
+    if (!activeRide || !['matched', 'driver_arriving'].includes(activeRide.status)) return;
+    const interval = setInterval(() => {
+      setActiveRide(prev => {
+        if (!prev || !prev.etaSeconds || prev.etaSeconds <= 0) return prev;
+        return { ...prev, etaSeconds: prev.etaSeconds - 1 };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
   }, [activeRide?.status]);
 
   const distance = destination
@@ -309,68 +334,90 @@ export default function HomeScreen() {
   const handleBook = async () => {
     if (!destination) return;
     setBookingLoading(true);
-    const rideId = `ride_${Date.now()}`;
-    // Save ride to Firestore
-    if (user) {
-      try {
-        await firestoreDB.create(COLLECTIONS.RIDES, {
-          id: rideId,
-          rider_id: user.uid,
-          category: selectedCategory.name,
-          pickup_address: 'Current Location',
-          destination_address: destination.name,
-          distance,
-          duration,
-          fare: perPersonFare,
-          payment: selectedPayment.name,
-          status: 'searching',
-          scheduled_for: isScheduled ? scheduledFor : null,
-          created_date: new Date().toISOString(),
-        });
-      } catch (err) {
-        console.error('Failed to save ride to Firestore:', err);
+    const pin = generateRidePin();
+    const surgedFare = Math.round(perPersonFare * SURGE * 100) / 100;
+    try {
+      // Create real Firestore ride request
+      let firestoreId: string | undefined;
+      if (user) {
+        try {
+          firestoreId = await dispatchService.createRide({
+            riderId: user.uid,
+            riderName: riderProfile?.full_name || user.displayName || 'Rider',
+            riderPhone: riderProfile?.phone || user.phoneNumber || '',
+            category: selectedCategory.id,
+            pickup: { lat: userLocation[0], lng: userLocation[1], name: 'Current Location', address: 'Current Location' },
+            destination: { lat: destination.lat, lng: destination.lng, name: destination.name, address: destination.address || destination.name },
+            stops: stops.filter(Boolean).map(s => ({ lat: s!.lat, lng: s!.lng, name: s!.name, address: s!.address || s!.name })),
+            payment: selectedPayment.id,
+            fare: surgedFare,
+            baseFare: perPersonFare,
+            surgeMultiplier: SURGE,
+            distance,
+            duration,
+            promoCode: appliedPromo ?? undefined,
+            discount: appliedPromo ? Math.round((perPersonFare - surgedFare) * 100) / 100 : undefined,
+          });
+        } catch (err) {
+          console.error('Firestore ride creation failed, continuing with local state:', err);
+        }
       }
+      setActiveRide({
+        id: firestoreId ?? `ride_${Date.now()}`,
+        firestoreId,
+        category: selectedCategory.name,
+        categoryId: selectedCategory.id,
+        destination,
+        pickup: 'Current Location',
+        distance,
+        duration,
+        fare: surgedFare,
+        payment: selectedPayment.name,
+        paymentId: selectedPayment.id,
+        status: 'searching',
+        scheduled: isScheduled ? scheduledFor : null,
+        splitData,
+        ridePin: pin,
+        surgeMultiplier: SURGE,
+      });
+    } finally {
+      setBookingLoading(false);
+      setRideRated(false);
+      setTipAdded(false);
+      setTipAmount(null);
     }
-    await new Promise((r) => setTimeout(r, 1200));
-    setActiveRide({
-      id: `ride_${Date.now()}`,
-      category: selectedCategory.name,
-      categoryId: selectedCategory.id,
-      destination,
-      pickup: "Current Location",
-      distance,
-      duration,
-      fare: perPersonFare,
-      payment: selectedPayment.name,
-      paymentId: selectedPayment.id,
-      status: "searching",
-      scheduled: isScheduled ? scheduledFor : null,
-      splitData: splitData,
-    });
-    setBookingLoading(false);
-    setRideRated(false);
-    setTipAdded(false);
-    setTipAmount(null);
   };
 
+  const CANCEL_REASONS = [
+    "Driver is taking too long",
+    "I found another ride",
+    "Wrong pickup location",
+    "Changed my plans",
+    "Price is too high",
+    "Other",
+  ];
   const handleCancelRide = () => {
     if (activeRide?.status === "in_progress") {
       Alert.alert("Cannot Cancel", "You cannot cancel a ride that is already in progress.");
       return;
     }
-    Alert.alert("Cancel Ride", "Are you sure you want to cancel this ride?", [
-      { text: "No", style: "cancel" },
-      {
-        text: "Yes, Cancel", style: "destructive", onPress: () => {
-          setActiveRide(null);
-          setDestination(null);
-          setSplitData(null);
-          setAppliedPromo(null);
-          setIsScheduled(false);
-          setScheduledFor(null);
-        }
-      },
-    ]);
+    setCancelReason("");
+    setShowCancelModal(true);
+  };
+  const confirmCancelRide = async () => {
+    if (activeRide?.firestoreId) {
+      try {
+        await dispatchService.cancelRide(activeRide.firestoreId, cancelReason || 'Cancelled by rider');
+      } catch (e) { /* silent */ }
+    }
+    setShowCancelModal(false);
+    setActiveRide(null);
+    setDestination(null);
+    setSplitData(null);
+    setAppliedPromo(null);
+    setIsScheduled(false);
+    setScheduledFor(null);
+    setCancelReason("");
   };
 
   const handleCancelBooking = () => {
@@ -490,7 +537,7 @@ export default function HomeScreen() {
 
             {/* Driver Card — full profile */}
             <View style={{ backgroundColor: CARD, borderRadius: 16, marginBottom: 10, borderWidth: 0.5, borderColor: BORDER, overflow: "hidden" }}>
-              {/* Top: avatar + name + ETA */}
+              {/* Top: avatar + name + plate */}
               <View style={{ flexDirection: "row", alignItems: "center", padding: 14, gap: 14 }}>
                 {/* Avatar */}
                 <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: `${GREEN}33`, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: GREEN }}>
@@ -499,32 +546,70 @@ export default function HomeScreen() {
                 {/* Name + rating + vehicle */}
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: TEXT, fontWeight: "800", fontSize: 17, marginBottom: 2 }}>{activeRide.driverName || "Your Driver"}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 3 }}>
                     {[1,2,3,4,5].map(i => (
                       <MaterialIcons key={i} name="star" size={13} color={i <= Math.round(activeRide.driverRating ?? 5) ? GOLD : BORDER} />
                     ))}
                     <Text style={{ color: MUTED, fontSize: 12, marginLeft: 2 }}>{activeRide.driverRating?.toFixed(1)}</Text>
+                    {activeRide.driverTotalTrips && (
+                      <Text style={{ color: MUTED, fontSize: 11, marginLeft: 4 }}>· {activeRide.driverTotalTrips} trips</Text>
+                    )}
                   </View>
-                  <Text style={{ color: MUTED, fontSize: 12 }}>{activeRide.driverVehicle}</Text>
+                  {/* Vehicle + colour swatch */}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={{ color: MUTED, fontSize: 12 }}>{activeRide.driverVehicle}</Text>
+                    {activeRide.driverColour && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: activeRide.driverColourHex || '#888', borderWidth: 1, borderColor: BORDER }} />
+                        <Text style={{ color: MUTED, fontSize: 11 }}>{activeRide.driverColour}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
                 {/* Plate badge */}
-                <View style={{ backgroundColor: `${GOLD}22`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: `${GOLD}55` }}>
-                  <Text style={{ color: GOLD, fontWeight: "800", fontSize: 13, letterSpacing: 1 }}>{activeRide.driverPlate}</Text>
+                <View style={{ alignItems: "center", gap: 4 }}>
+                  <View style={{ backgroundColor: `${GOLD}22`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: `${GOLD}55` }}>
+                    <Text style={{ color: GOLD, fontWeight: "800", fontSize: 13, letterSpacing: 1 }}>{activeRide.driverPlate}</Text>
+                  </View>
+                  {activeRide.etaSeconds !== undefined && activeRide.etaSeconds > 0 && (
+                    <Text style={{ color: GREEN, fontSize: 11, fontWeight: "600" }}>
+                      {Math.floor(activeRide.etaSeconds / 60)}:{String(activeRide.etaSeconds % 60).padStart(2, '0')}
+                    </Text>
+                  )}
                 </View>
               </View>
+              {/* Ride PIN row */}
+              {activeRide.ridePin && (
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: `#0A0A0A`, borderTopWidth: 0.5, borderTopColor: BORDER }}>
+                  <MaterialIcons name="lock" size={14} color={GOLD} />
+                  <Text style={{ color: MUTED, fontSize: 12 }}>Ride PIN:</Text>
+                  <Text style={{ color: GOLD, fontWeight: "800", fontSize: 16, letterSpacing: 4 }}>{activeRide.ridePin}</Text>
+                  <Text style={{ color: MUTED, fontSize: 11 }}>— share with driver</Text>
+                </View>
+              )}
+              {/* Surge badge if applicable */}
+              {activeRide.surgeMultiplier && activeRide.surgeMultiplier > 1 && (
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 6, backgroundColor: `${RED}1A`, borderTopWidth: 0.5, borderTopColor: `${RED}33` }}>
+                  <MaterialIcons name="trending-up" size={14} color={RED} />
+                  <Text style={{ color: RED, fontSize: 12, fontWeight: "600" }}>{activeRide.surgeMultiplier.toFixed(1)}× Surge Pricing Active</Text>
+                </View>
+              )}
               {/* Divider */}
               <View style={{ height: 0.5, backgroundColor: BORDER, marginHorizontal: 14 }} />
               {/* Bottom: call + message buttons */}
               <View style={{ flexDirection: "row", padding: 12, gap: 10 }}>
                 <TouchableOpacity
-                  onPress={() => Alert.alert("Call Driver", `Calling ${activeRide.driverName}...`)}
+                  onPress={() => {
+                    if (activeRide.driverPhone) Linking.openURL(`tel:${activeRide.driverPhone}`);
+                    else Alert.alert("Call Driver", `Calling ${activeRide.driverName}...`);
+                  }}
                   style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: GREEN }}
                 >
                   <MaterialIcons name="phone" size={18} color="#fff" />
                   <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Call</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  onPress={() => Alert.alert("Message Driver", `Messaging ${activeRide.driverName}...`)}
+                  onPress={() => setShowChat(true)}
                   style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: `${GOLD}22`, borderWidth: 1, borderColor: `${GOLD}55` }}
                 >
                   <MaterialIcons name="chat" size={18} color={GOLD} />
@@ -865,8 +950,33 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* Ride Options Row */}
+      <TouchableOpacity
+        onPress={() => setShowRideOptions(true)}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: CARD, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 0.5, borderColor: BORDER }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          <MaterialIcons name="tune" size={18} color={GOLD} />
+          <View>
+            <Text style={{ color: TEXT, fontWeight: "600", fontSize: 13 }}>Ride Options</Text>
+            <Text style={{ color: MUTED, fontSize: 11 }}>
+              {Object.values(rideOptions).some(Boolean)
+                ? Object.entries(rideOptions).filter(([,v]) => v).map(([k]) => k.replace(/_/g,' ')).join(', ')
+                : 'AC, pet friendly, luggage...'}
+            </Text>
+          </View>
+        </View>
+        <MaterialIcons name="chevron-right" size={20} color={MUTED} />
+      </TouchableOpacity>
       {/* Fare Summary */}
       <View style={{ backgroundColor: CARD, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 0.5, borderColor: BORDER }}>
+        {/* Surge indicator */}
+        {SURGE > 1 && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: `${RED}1A`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 }}>
+            <MaterialIcons name="trending-up" size={14} color={RED} />
+            <Text style={{ color: RED, fontSize: 12, fontWeight: "600" }}>{SURGE.toFixed(1)}× Surge Pricing — High demand in your area</Text>
+          </View>
+        )}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View>
             <Text style={{ color: MUTED, fontSize: 10, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "700", marginBottom: 4 }}>
@@ -1416,11 +1526,85 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </View>
         </View>
+            </Modal>
+
+      {/* Cancel with Reason Modal */}
+      <Modal visible={showCancelModal} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <View style={{ backgroundColor: CARD, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 }}>
+            <Text style={{ color: TEXT, fontWeight: "800", fontSize: 18, marginBottom: 4 }}>Cancel Ride</Text>
+            <Text style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Please select a reason for cancelling:</Text>
+            {CANCEL_REASONS.map((reason) => (
+              <TouchableOpacity
+                key={reason}
+                onPress={() => setCancelReason(reason)}
+                style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12, borderBottomWidth: 0.5, borderBottomColor: BORDER }}
+              >
+                <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: cancelReason === reason ? RED : BORDER, alignItems: "center", justifyContent: "center" }}>
+                  {cancelReason === reason && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: RED }} />}
+                </View>
+                <Text style={{ color: TEXT, fontSize: 14 }}>{reason}</Text>
+              </TouchableOpacity>
+            ))}
+            <View style={{ flexDirection: "row", gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={() => setShowCancelModal(false)}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: BORDER, alignItems: "center" }}
+              >
+                <Text style={{ color: TEXT, fontWeight: "600" }}>Keep Ride</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmCancelRide}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, backgroundColor: RED, alignItems: "center" }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "700" }}>Cancel Ride</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Ride Options Modal */}
+      <Modal visible={showRideOptions} transparent animationType="slide">
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.6)" }}>
+          <View style={{ backgroundColor: CARD, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 }}>
+            <Text style={{ color: TEXT, fontWeight: "800", fontSize: 18, marginBottom: 4 }}>Ride Options</Text>
+            <Text style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Customise your ride experience:</Text>
+            {([
+              { key: "ac", icon: "ac-unit", label: "Air Conditioning", desc: "Request a cool ride" },
+              { key: "pet_friendly", icon: "pets", label: "Pet Friendly", desc: "Travelling with a pet" },
+              { key: "extra_luggage", icon: "luggage", label: "Extra Luggage", desc: "Large bags or equipment" },
+              { key: "wheelchair_accessible", icon: "accessible", label: "Wheelchair Accessible", desc: "Accessible vehicle needed" },
+            ] as const).map(({ key, icon, label, desc }) => (
+              <TouchableOpacity
+                key={key}
+                onPress={() => setRideOptions(prev => ({ ...prev, [key]: !prev[key] }))}
+                style={{ flexDirection: "row", alignItems: "center", gap: 14, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: BORDER }}
+              >
+                <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: rideOptions[key] ? `${GOLD}22` : `${BORDER}33`, alignItems: "center", justifyContent: "center" }}>
+                  <MaterialIcons name={icon as any} size={22} color={rideOptions[key] ? GOLD : MUTED} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: TEXT, fontSize: 14, fontWeight: "600" }}>{label}</Text>
+                  <Text style={{ color: MUTED, fontSize: 12 }}>{desc}</Text>
+                </View>
+                <View style={{ width: 24, height: 24, borderRadius: 12, borderWidth: 2, borderColor: rideOptions[key] ? GOLD : BORDER, backgroundColor: rideOptions[key] ? GOLD : "transparent", alignItems: "center", justifyContent: "center" }}>
+                  {rideOptions[key] && <MaterialIcons name="check" size={14} color="#000" />}
+                </View>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              onPress={() => setShowRideOptions(false)}
+              style={{ marginTop: 20, paddingVertical: 14, borderRadius: 14, backgroundColor: GOLD, alignItems: "center" }}
+            >
+              <Text style={{ color: "#000", fontWeight: "700", fontSize: 15 }}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
 }
-
 // Helper component for key-value rows
 function Row({ label, value, valueColor, bold }: { label: string; value: string; valueColor?: string; bold?: boolean }) {
   return (

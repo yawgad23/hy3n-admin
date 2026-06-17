@@ -86,20 +86,18 @@ export default function ActivityScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<"past" | "upcoming">("past");
-  const [rides, setRides] = useState<Ride[]>(MOCK_RIDES);
+  const [rides, setRides] = useState<Ride[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [loadingRides, setLoadingRides] = useState(false);
+  const [loadingRides, setLoadingRides] = useState(true);
 
   const loadRides = useCallback(async () => {
     if (!user) return;
     setLoadingRides(true);
     try {
       const firestoreRides = await firestoreDB.list('RideRequests', { rider_id: user.uid }, 'created_date', 'desc', 50);
-      if (firestoreRides && firestoreRides.length > 0) {
-        setRides(firestoreRides as Ride[]);
-      }
+      setRides(firestoreRides ? (firestoreRides as Ride[]) : []);
     } catch (err) {
-      // fallback to mock data
+      setRides([]);
     } finally {
       setLoadingRides(false);
     }
@@ -217,17 +215,24 @@ export default function ActivityScreen() {
           );
         }}
         ListEmptyComponent={
-          <View style={{ alignItems: "center", paddingVertical: 60 }}>
-            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: CARD, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-              <MaterialIcons name={activeTab === "past" ? "history" : "event"} size={32} color={MUTED} />
+          loadingRides ? (
+            <View style={{ alignItems: "center", paddingVertical: 60 }}>
+              <ActivityIndicator color={GOLD} size="large" />
+              <Text style={{ color: MUTED, fontSize: 13, marginTop: 16 }}>Loading your rides...</Text>
             </View>
-            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 16, marginBottom: 6 }}>
-              {activeTab === "past" ? "No past rides" : "No upcoming trips"}
-            </Text>
-            <Text style={{ color: MUTED, fontSize: 13, textAlign: "center" }}>
-              {activeTab === "past" ? "Your completed rides will appear here" : "Schedule a ride from the home screen"}
-            </Text>
-          </View>
+          ) : (
+            <View style={{ alignItems: "center", paddingVertical: 60 }}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: CARD, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                <MaterialIcons name={activeTab === "past" ? "history" : "event"} size={32} color={MUTED} />
+              </View>
+              <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 16, marginBottom: 6 }}>
+                {activeTab === "past" ? "No past rides" : "No upcoming trips"}
+              </Text>
+              <Text style={{ color: MUTED, fontSize: 13, textAlign: "center" }}>
+                {activeTab === "past" ? "Your completed rides will appear here" : "Schedule a ride from the home screen"}
+              </Text>
+            </View>
+          )
         }
       />
 

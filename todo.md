@@ -80,3 +80,30 @@
 
 ### General
 - [x] "Wo ho te sɛn?" Twi greeting on home screen header
+
+## Production Backend & Uber/Bolt Feature Parity
+
+### Real Dispatch Backend (Firestore)
+- [ ] Firestore schema: rides collection (status, rider_id, driver_id, pickup, destination, fare, timestamps)
+- [ ] Firestore schema: drivers collection (name, vehicle, colour, plate, photo, rating, location, is_available)
+- [ ] Real ride request creation — write to Firestore on Book
+- [ ] Real driver matching — query available drivers near pickup
+- [ ] Real-time ride status listener — onSnapshot for live status updates
+- [ ] Real driver location updates — live lat/lng from Firestore
+- [ ] Real trip history — load from Firestore rides collection per rider_id
+- [ ] Real wallet balance — load from Firestore users collection, start at GH₵ 0.00
+
+### Uber/Bolt Rider UI Features
+- [ ] Vehicle colour badge on driver card (e.g. Red, Black, White, Silver, Blue)
+- [ ] Driver card: photo placeholder, name, rating, vehicle, plate, colour
+- [ ] ETA countdown timer (live seconds countdown to driver arrival)
+- [ ] Surge pricing indicator (1.2x, 1.5x, 2x badge on category cards)
+- [ ] Cancel policy warning (free within 2 min, GH₵2 fee after)
+- [ ] Cancel ride with reason selection modal
+- [ ] Ride options: AC toggle, pet-friendly, extra luggage
+- [ ] Fare estimate range before booking (show min-max per category)
+- [ ] Share trip with contact (share live tracking link via WhatsApp/SMS)
+- [ ] Driver is nearby alert (push notification + banner when driver is 2 min away)
+- [ ] Ride PIN verification (4-digit PIN rider shows driver before trip starts)
+- [ ] Lost & Found contact button in trip details
+- [ ] Accessibility option (wheelchair-accessible vehicle request)
