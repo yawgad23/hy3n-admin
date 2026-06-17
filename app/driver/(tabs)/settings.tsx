@@ -41,7 +41,7 @@ export default function DriverSettingsScreen() {
                 await firestoreDB.delete(COLLECTIONS.DRIVER_PROFILES, driverProfile.id);
               }
               await signOut();
-              router.replace('/driver/login' as any);
+              router.replace('/driver' as any);
             } catch {
               Alert.alert('Error', 'Failed to delete account. Please try again or contact hello@ridehy3n.com');
             } finally {

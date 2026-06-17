@@ -5,7 +5,8 @@ import { DriverAuthProvider } from '@/lib/driver-auth-context';
 export default function DriverLayout() {
   return (
     <DriverAuthProvider>
-      <Stack screenOptions={{ headerShown: false }}>
+      <Stack screenOptions={{ headerShown: false }} initialRouteName="index">
+        <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
         <Stack.Screen name="forgot-password" />

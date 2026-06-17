@@ -231,3 +231,9 @@
 - [x] Selected categories saved to Firestore driver_profiles and AsyncStorage
 - [x] Incoming ride request listener filters to only show rides matching driver's selected categories
 - [x] Category badges shown on home screen when categories are selected
+
+## Driver App Entry Flow (Jun 17)
+
+- [x] Driver landing page: single screen with Sign In + Become a Driver buttons (shown only when not logged in)
+- [x] Authenticated drivers skip the landing page and go directly to the driver tabs
+- [x] Remove separate "become a driver" page from the unauthenticated flow (merge into sign-up)

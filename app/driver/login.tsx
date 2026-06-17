@@ -173,13 +173,15 @@ export default function DriverLoginScreen() {
             )}
           </TouchableOpacity>
 
-          {/* Register link */}
-          <View style={styles.registerRow}>
-            <Text style={styles.registerText}>New driver? Join the fleet  </Text>
-            <TouchableOpacity onPress={() => router.push('/driver/register' as any)}>
-              <Text style={styles.registerLink}>Register as a Driver</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Back to landing */}
+          <TouchableOpacity
+            style={styles.registerRow}
+            onPress={() => router.replace('/driver' as any)}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="arrow-back" size={14} color={MUTED} />
+            <Text style={[styles.registerText, { marginLeft: 4 }]}>Back to start</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Footer */}

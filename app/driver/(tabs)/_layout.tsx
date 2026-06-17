@@ -368,7 +368,7 @@ export default function DriverTabLayout() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!loading && !user) {
-      router.replace('/driver/login' as any);
+      router.replace('/driver' as any);
     }
   }, [loading, user]);
 

@@ -43,7 +43,7 @@ export default function DriverProfileScreen() {
           setSigningOut(true);
           try {
             await signOut();
-            router.replace('/driver/login' as any);
+            router.replace('/driver' as any);
           } catch {
             Alert.alert('Error', 'Failed to sign out. Please try again.');
           } finally {
