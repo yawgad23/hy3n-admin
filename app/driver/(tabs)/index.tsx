@@ -289,6 +289,20 @@ export default function DriverHomeScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {/* Ride PIN — only shown at pickup in high-traffic zones or when ride_pin exists */}
+            {activeTrip.status === 'driver_arrived' && activeTrip.ride_pin && (
+              <View style={styles.pinContainer}>
+                <MaterialIcons name="pin" size={16} color={GOLD} />
+                <Text style={styles.pinLabel}>Ask rider for PIN</Text>
+                <View style={styles.pinBoxRow}>
+                  {activeTrip.ride_pin.split('').map((digit, i) => (
+                    <View key={i} style={styles.pinBox}>
+                      <Text style={styles.pinDigit}>{digit}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
             <View style={styles.tripActions}>
               {(activeTrip.status === 'matched' || activeTrip.status === 'driver_arriving') && (
                 <TouchableOpacity style={styles.tripActionBtn} onPress={() => handleTripAction('pickup')} activeOpacity={0.85}>
@@ -458,4 +472,9 @@ const styles = StyleSheet.create({
   offlineMsg: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   offlineMsgTitle: { fontSize: 18, fontWeight: '700', color: MUTED },
   offlineMsgText: { fontSize: 14, color: MUTED, textAlign: 'center', paddingHorizontal: 32 },
+  pinContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 4, backgroundColor: '#1A1400', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#3A2E00' },
+  pinLabel: { fontSize: 12, color: GOLD, fontWeight: '600', flex: 1 },
+  pinBoxRow: { flexDirection: 'row', gap: 6 },
+  pinBox: { width: 28, height: 32, borderRadius: 6, backgroundColor: '#2A2200', borderWidth: 1.5, borderColor: GOLD, alignItems: 'center', justifyContent: 'center' },
+  pinDigit: { fontSize: 16, fontWeight: '800', color: GOLD, letterSpacing: 1 },
 });
