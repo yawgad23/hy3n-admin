@@ -8,6 +8,38 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useDriverAuth } from '@/lib/driver-auth-context';
 import { firestoreDB, COLLECTIONS } from '@/lib/firebase';
 import { router } from 'expo-router';
+import { Linking } from 'react-native';
+
+const openNavigation = (location: { name: string; address: string; lat?: number; lng?: number } | string) => {
+  let lat: number | undefined;
+  let lng: number | undefined;
+  let label = '';
+  if (typeof location === 'object') {
+    lat = location.lat;
+    lng = location.lng;
+    label = location.name || location.address || '';
+  } else {
+    label = location;
+  }
+  const encodedLabel = encodeURIComponent(label);
+  if (lat && lng) {
+    const googleUrl = `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`;
+    const appleMapsUrl = `maps://?daddr=${lat},${lng}`;
+    const googleWebUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`;
+    if (Platform.OS === 'ios') {
+      Linking.canOpenURL(googleUrl).then(supported => {
+        Linking.openURL(supported ? googleUrl : appleMapsUrl);
+      });
+    } else {
+      Linking.canOpenURL('comgooglemaps://').then(supported => {
+        Linking.openURL(supported ? googleUrl : googleWebUrl);
+      });
+    }
+  } else {
+    const webUrl = `https://www.google.com/maps/search/?api=1&query=${encodedLabel}`;
+    Linking.openURL(webUrl);
+  }
+};
 
 const GOLD = '#D4AF37';
 const GREEN = '#22C55E';
@@ -283,9 +315,24 @@ export default function DriverHomeScreen() {
             <View style={styles.tripFareRow}>
               <Text style={styles.tripFare}>GH₵{activeTrip.fare.toFixed(2)}</Text>
               {activeTrip.rider_phone && (
-                <TouchableOpacity style={styles.callBtn}>
+                <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${activeTrip.rider_phone}`)}>
                   <MaterialIcons name="phone" size={18} color={GOLD} />
                   <Text style={styles.callBtnText}>Call Rider</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {/* Navigation buttons */}
+            <View style={styles.navBtnRow}>
+              {(activeTrip.status === 'matched' || activeTrip.status === 'driver_arriving') && (
+                <TouchableOpacity style={styles.navBtn} onPress={() => openNavigation(activeTrip.pickup)} activeOpacity={0.85}>
+                  <MaterialIcons name="navigation" size={16} color="#fff" />
+                  <Text style={styles.navBtnText}>Navigate to Pickup</Text>
+                </TouchableOpacity>
+              )}
+              {activeTrip.status === 'in_progress' && (
+                <TouchableOpacity style={[styles.navBtn, { backgroundColor: '#1A3300' }]} onPress={() => openNavigation(activeTrip.destination)} activeOpacity={0.85}>
+                  <MaterialIcons name="navigation" size={16} color={GREEN} />
+                  <Text style={[styles.navBtnText, { color: GREEN }]}>Navigate to Destination</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -472,6 +519,9 @@ const styles = StyleSheet.create({
   offlineMsg: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   offlineMsgTitle: { fontSize: 18, fontWeight: '700', color: MUTED },
   offlineMsgText: { fontSize: 14, color: MUTED, textAlign: 'center', paddingHorizontal: 32 },
+  navBtnRow: { marginTop: 10, gap: 8 },
+  navBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A2A3A', borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16 },
+  navBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   pinContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, marginBottom: 4, backgroundColor: '#1A1400', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#3A2E00' },
   pinLabel: { fontSize: 12, color: GOLD, fontWeight: '600', flex: 1 },
   pinBoxRow: { flexDirection: 'row', gap: 6 },
