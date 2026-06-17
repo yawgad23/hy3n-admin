@@ -5,6 +5,7 @@
 
 import { initializeApp, getApps } from 'firebase/app';
 import {
+  initializeAuth,
   getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -17,6 +18,11 @@ import {
   deleteUser,
   type User,
 } from 'firebase/auth';
+// getReactNativePersistence is only in the RN build of firebase/auth (resolved via metro.config.js)
+// We import it separately to avoid TypeScript errors on the web type definitions
+import AsyncStorage from '@react-native-async-storage/async-storage';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { getReactNativePersistence } = require('firebase/auth') as { getReactNativePersistence: (storage: any) => any };
 import {
   getFirestore,
   collection,
@@ -40,7 +46,6 @@ import {
   uploadBytes,
   getDownloadURL,
 } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Firebase Config ─────────────────────────────────────────────────────────
 const firebaseConfig = {
@@ -55,7 +60,18 @@ const firebaseConfig = {
 
 // Initialize Firebase (avoid re-initialization)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
+
+// Use initializeAuth with AsyncStorage persistence so login survives app restarts
+let auth: ReturnType<typeof getAuth>;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch (e: any) {
+  // Already initialized — get existing instance
+  auth = getAuth(app);
+}
+
 const db = getFirestore(app);
 const storage = getStorage(app);
 
@@ -95,7 +111,6 @@ export const firebaseAuth = {
 
   async logout() {
     await signOut(auth);
-    await AsyncStorage.removeItem('hy3n_user');
   },
 
   async resetPassword(email: string) {
@@ -114,7 +129,6 @@ export const firebaseAuth = {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('No user logged in');
     await deleteUser(currentUser);
-    await AsyncStorage.removeItem('hy3n_user');
   },
 };
 

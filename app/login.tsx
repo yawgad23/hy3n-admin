@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert, Image,
@@ -7,11 +7,7 @@ import { router } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { auth } from '@/lib/firebase';
-import {
-  PhoneAuthProvider,
-  signInWithCredential,
-  RecaptchaVerifier,
-} from 'firebase/auth';
+import { PhoneAuthProvider, signInWithCredential } from 'firebase/auth';
 
 const GOLD = '#D4AF37';
 const GREEN = '#006B3F';
@@ -24,11 +20,11 @@ const MUTED = '#9CA3AF';
 type LoginTab = 'phone' | 'email';
 
 export default function LoginScreen() {
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const [tab, setTab] = useState<LoginTab>('phone');
 
   // Phone OTP state
-  const [phone, setPhone] = useState(''); // stores only the local digits after +233
+  const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [phoneLoading, setPhoneLoading] = useState(false);
@@ -42,29 +38,34 @@ export default function LoginScreen() {
 
   // ── Phone OTP ──────────────────────────────────────────────────────────────
   const handleSendOTP = async () => {
-    const cleaned = ('+233' + phone.trim().replace(/\s/g, '')).replace(/\+233\+233/, '+233');
-    if (!cleaned || cleaned.length < 9) {
-      Alert.alert('Invalid Number', 'Please enter a valid phone number with country code (e.g. +233241234567)');
+    const digits = phone.trim().replace(/\s/g, '');
+    const fullNumber = '+233' + digits.replace(/^\+?233/, '').replace(/^0/, '');
+    if (digits.length < 9) {
+      Alert.alert('Invalid Number', 'Please enter your 9-digit Ghana mobile number (e.g. 241234567)');
       return;
     }
     setPhoneLoading(true);
     try {
-      // Firebase Phone Auth — works on real devices and Expo Go with test numbers
       const provider = new PhoneAuthProvider(auth);
-      // On native, we pass a dummy recaptcha verifier that Firebase ignores for real devices
-      const vid = await provider.verifyPhoneNumber(cleaned, new RecaptchaVerifier(auth, 'recaptcha-container', { size: 'invisible' }) as any);
+      // On native Expo Go / production build, Firebase handles reCAPTCHA natively
+      // No RecaptchaVerifier needed — pass undefined for native
+      const vid = await (provider as any).verifyPhoneNumber(fullNumber, undefined);
       setVerificationId(vid);
-      Alert.alert('OTP Sent', `A verification code has been sent to ${cleaned}`);
+      Alert.alert('OTP Sent', `A verification code has been sent to ${fullNumber}`);
     } catch (err: any) {
-      // On Expo Go web preview, phone auth requires a real device — show helpful message
-      if (err.code === 'auth/operation-not-supported-in-this-environment' || err.code === 'auth/web-storage-unsupported') {
+      const code = err?.code || '';
+      if (
+        code === 'auth/operation-not-supported-in-this-environment' ||
+        code === 'auth/web-storage-unsupported' ||
+        code === 'auth/internal-error'
+      ) {
         Alert.alert(
           'Phone Login',
-          'Phone OTP login works on real iOS/Android devices. Please use Email login for testing in the browser preview, or scan the QR code to test on your phone.',
-          [{ text: 'OK' }]
+          'Phone OTP works on real iOS/Android devices. Please use the Email tab to log in while testing in the browser preview.',
+          [{ text: 'Switch to Email', onPress: () => setTab('email') }, { text: 'OK' }]
         );
       } else {
-        Alert.alert('Error', err.message || 'Failed to send OTP');
+        Alert.alert('Error', err.message || 'Failed to send OTP. Please try again.');
       }
     } finally {
       setPhoneLoading(false);
@@ -83,7 +84,7 @@ export default function LoginScreen() {
       await signInWithCredential(auth, credential);
       router.replace('/(tabs)' as any);
     } catch (err: any) {
-      Alert.alert('Verification Failed', err.message || 'Invalid verification code');
+      Alert.alert('Verification Failed', err.message || 'Invalid verification code. Please try again.');
     } finally {
       setOtpLoading(false);
     }
@@ -97,10 +98,17 @@ export default function LoginScreen() {
     }
     setEmailLoading(true);
     try {
-      await signIn(email.trim(), password);
+      await signIn(email.trim().toLowerCase(), password);
       router.replace('/(tabs)' as any);
     } catch (err: any) {
-      Alert.alert('Login Failed', err.message || 'Invalid email or password');
+      const code = err?.code || '';
+      if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
+        Alert.alert('Login Failed', 'Incorrect email or password. Please try again.');
+      } else if (code === 'auth/too-many-requests') {
+        Alert.alert('Too Many Attempts', 'Account temporarily locked. Please reset your password or try again later.');
+      } else {
+        Alert.alert('Login Failed', err.message || 'Something went wrong. Please try again.');
+      }
     } finally {
       setEmailLoading(false);
     }
@@ -110,7 +118,7 @@ export default function LoginScreen() {
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
-                {/* Logo */}
+        {/* Logo */}
         <View style={styles.logoRow}>
           <Image
             source={require('@/assets/images/icon.png')}
@@ -157,7 +165,6 @@ export default function LoginScreen() {
                     placeholderTextColor={MUTED}
                     value={phone}
                     onChangeText={(val) => {
-                      // Strip any leading +233 or 0 if user pastes full number
                       const stripped = val.replace(/^\+?233/, '').replace(/^0/, '');
                       setPhone(stripped);
                     }}
@@ -302,7 +309,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-                {/* Terms */}
+        {/* Terms */}
         <Text style={styles.terms}>
           By continuing, you agree to HY3N's{' '}
           <Text style={{ color: GOLD }}>Terms of Service</Text> and{' '}
@@ -344,18 +351,21 @@ const styles = StyleSheet.create({
   otpSentText: { color: GREEN, fontSize: 14, fontWeight: '600', flex: 1 },
   resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
   resendText: { color: MUTED, fontSize: 14 },
-  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 20 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
-  dividerText: { color: MUTED, fontSize: 14, marginHorizontal: 12 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 20, gap: 12 },
+  dividerLine: { flex: 1, height: 0.5, backgroundColor: BORDER },
+  dividerText: { color: MUTED, fontSize: 14 },
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    height: 56, borderRadius: 12, borderWidth: 2, borderColor: '#4285F4',
-    backgroundColor: '#fff', marginBottom: 24, gap: 12,
+    height: 52, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
+    backgroundColor: CARD, marginBottom: 20, gap: 12,
   },
-  googleIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  googleText: { color: '#1F1F1F', fontSize: 17, fontWeight: '700' },
+  googleIcon: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  googleText: { color: TEXT, fontSize: 16, fontWeight: '600' },
   registerRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 16 },
-  registerText: { fontSize: 15, color: MUTED },
-  registerLink: { fontSize: 15, fontWeight: '700', color: GOLD },
-  terms: { fontSize: 12, color: MUTED, textAlign: 'center', lineHeight: 20 },
+  registerText: { color: MUTED, fontSize: 15 },
+  registerLink: { color: GOLD, fontSize: 15, fontWeight: '700' },
+  terms: { textAlign: 'center', color: MUTED, fontSize: 12, lineHeight: 18 },
 });
