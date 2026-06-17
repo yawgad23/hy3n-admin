@@ -105,41 +105,87 @@ function NotificationCenter({ visible, onClose, driverId }: { visible: boolean; 
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const TYPE_ICON: Record<string, { icon: string; color: string }> = {
+    ride_completed:     { icon: 'check-circle',  color: GREEN },
+    ride_cancelled:     { icon: 'cancel',         color: RED  },
+    commission_paid:    { icon: 'credit-card',    color: GREEN },
+    commission_rejected:{ icon: 'error',          color: RED  },
+    commission_pending: { icon: 'access-time',    color: GOLD },
+    rating_received:    { icon: 'star',           color: GOLD },
+    support_reply:      { icon: 'info',           color: '#3B82F6' },
+    general:            { icon: 'notifications',  color: GOLD },
+  };
+
+  const buildFromFirestore = async () => {
+    try {
+      // Primary: read from notifications collection
+      const notifDocs = await firestoreDB.list('notifications', { user_id: driverId });
+      if (notifDocs.length > 0) {
+        const sorted = [...notifDocs].sort((a: any, b: any) =>
+          (b.created_date || '').localeCompare(a.created_date || '')
+        ).slice(0, 50);
+        setNotifications(sorted);
+        return;
+      }
+    } catch {}
+
+    // Fallback: build from rides + commission records
+    try {
+      const [rides, commissions] = await Promise.all([
+        firestoreDB.list(COLLECTIONS.RIDES, { driver_id: driverId }),
+        firestoreDB.list(COLLECTIONS.DAILY_COMMISSION, { driver_id: driverId }).catch(() => [] as any[]),
+      ]);
+
+      const rideNotifs = rides
+        .filter((r: any) => r.status === 'completed' || r.status === 'cancelled')
+        .sort((a: any, b: any) => (b.completed_at || b.created_date || '').localeCompare(a.completed_at || a.created_date || ''))
+        .slice(0, 15)
+        .map((r: any) => ({
+          id: `ride_${r.id}`,
+          type: r.status === 'completed' ? 'ride_completed' : 'ride_cancelled',
+          title: r.status === 'completed' ? 'Trip Completed' : 'Trip Cancelled',
+          body: r.status === 'completed'
+            ? `Trip to ${r.destination_address || r.destination || 'destination'} completed. Fare: GH₵${r.fare || r.fare_estimate || '—'}`
+            : `Trip to ${r.destination_address || r.destination || 'destination'} was cancelled.`,
+          created_date: r.completed_at || r.cancelled_at || r.created_date,
+          read: true,
+        }));
+
+      const commissionNotifs = (commissions as any[]).slice(0, 10).map((c: any) => ({
+        id: `comm_${c.id}`,
+        type: c.status === 'confirmed' ? 'commission_paid' : c.status === 'rejected' ? 'commission_rejected' : 'commission_pending',
+        title: c.status === 'confirmed' ? 'Commission Confirmed' : c.status === 'rejected' ? 'Commission Rejected' : 'Commission Pending',
+        body: c.status === 'confirmed'
+          ? `Your GH₵${c.amount || 50} daily commission was confirmed. You're ready to go!`
+          : c.status === 'rejected'
+          ? 'Your commission payment was rejected. Please resubmit with the correct reference.'
+          : `Your GH₵${c.amount || 50} commission is awaiting admin confirmation.`,
+        created_date: c.created_date || c.submitted_at,
+        read: c.status !== 'pending',
+      }));
+
+      const all = [...rideNotifs, ...commissionNotifs].sort((a, b) =>
+        (b.created_date || '').localeCompare(a.created_date || '')
+      );
+      setNotifications(all);
+    } catch {}
+  };
+
   useEffect(() => {
     if (!visible || !driverId) return;
     setLoading(true);
-    // Load from rides as fallback (same as web app)
-    firestoreDB.list(COLLECTIONS.RIDES, { driver_id: driverId })
-      .then((rides: any[]) => {
-        const notifs = rides
-          .filter(r => r.status === 'completed' || r.status === 'cancelled')
-          .sort((a, b) => (b.completed_at || b.created_date || '').localeCompare(a.completed_at || a.created_date || ''))
-          .slice(0, 20)
-          .map(r => ({
-            id: `ride_${r.id}`,
-            type: r.status === 'completed' ? 'ride_completed' : 'ride_cancelled',
-            title: r.status === 'completed' ? 'Trip Completed' : 'Trip Cancelled',
-            body: r.status === 'completed'
-              ? `Trip to ${r.destination_address || r.destination || 'destination'} completed. Fare: GH₵${r.fare || r.fare_estimate || '—'}`
-              : `Trip to ${r.destination_address || r.destination || 'destination'} was cancelled.`,
-            created_date: r.completed_at || r.cancelled_at || r.created_date,
-            read: true,
-          }));
-        setNotifications(notifs);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    buildFromFirestore().finally(() => setLoading(false));
   }, [visible, driverId]);
 
-  const TYPE_ICON: Record<string, { icon: string; color: string }> = {
-    ride_completed: { icon: 'check-circle', color: GREEN },
-    ride_cancelled: { icon: 'cancel', color: RED },
-    commission_paid: { icon: 'credit-card', color: GREEN },
-    commission_rejected: { icon: 'error', color: RED },
-    commission_pending: { icon: 'access-time', color: GOLD },
-    rating_received: { icon: 'star', color: GOLD },
-    general: { icon: 'notifications', color: GOLD },
+  const markAllRead = async () => {
+    const unread = notifications.filter(n => !n.read && !n.id.startsWith('ride_') && !n.id.startsWith('comm_'));
+    for (const n of unread) {
+      try { await firestoreDB.update('notifications', n.id, { read: true }); } catch {}
+    }
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const formatAgo = (iso?: string) => {
     if (!iso) return '';
@@ -158,6 +204,17 @@ function NotificationCenter({ visible, onClose, driverId }: { visible: boolean; 
         <View style={notifStyles.header}>
           <MaterialIcons name="notifications" size={22} color={GOLD} />
           <Text style={notifStyles.title}>Notifications</Text>
+          {unreadCount > 0 && (
+            <View style={notifStyles.unreadBadge}>
+              <Text style={notifStyles.unreadBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
+          <View style={{ flex: 1 }} />
+          {unreadCount > 0 && (
+            <TouchableOpacity onPress={markAllRead} style={notifStyles.markReadBtn}>
+              <Text style={notifStyles.markReadText}>Mark all read</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity onPress={onClose} style={notifStyles.closeBtn}>
             <MaterialIcons name="close" size={22} color={TEXT} />
           </TouchableOpacity>
@@ -170,22 +227,23 @@ function NotificationCenter({ visible, onClose, driverId }: { visible: boolean; 
           <View style={notifStyles.center}>
             <MaterialIcons name="notifications-none" size={56} color={MUTED} />
             <Text style={notifStyles.emptyTitle}>No notifications yet</Text>
-            <Text style={notifStyles.emptyText}>Trip updates and commission status will appear here.</Text>
+            <Text style={notifStyles.emptyText}>Trip updates, commission status, and ratings will appear here.</Text>
           </View>
         ) : (
           <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
             {notifications.map(n => {
               const cfg = TYPE_ICON[n.type] || TYPE_ICON.general;
               return (
-                <View key={n.id} style={notifStyles.item}>
+                <View key={n.id} style={[notifStyles.item, !n.read && notifStyles.itemUnread]}>
                   <View style={[notifStyles.iconBox, { backgroundColor: cfg.color + '20' }]}>
                     <MaterialIcons name={cfg.icon as any} size={22} color={cfg.color} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={notifStyles.itemTitle}>{n.title}</Text>
+                    <Text style={[notifStyles.itemTitle, !n.read && { color: TEXT }]}>{n.title}</Text>
                     {n.body && <Text style={notifStyles.itemBody}>{n.body}</Text>}
                     {n.created_date && <Text style={notifStyles.itemTime}>{formatAgo(n.created_date)}</Text>}
                   </View>
+                  {!n.read && <View style={notifStyles.unreadDot} />}
                 </View>
               );
             })}
@@ -1115,17 +1173,23 @@ const styles = StyleSheet.create({
 
 const notifStyles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0F1117' },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 0.5, borderBottomColor: '#2A2A2A' },
-  title: { flex: 1, fontSize: 20, fontWeight: '800', color: TEXT },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16, borderBottomWidth: 0.5, borderBottomColor: '#2A2A2A' },
+  title: { fontSize: 20, fontWeight: '800', color: TEXT },
+  unreadBadge: { backgroundColor: RED, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
+  unreadBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  markReadBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, backgroundColor: GOLD + '20' },
+  markReadText: { color: GOLD, fontSize: 12, fontWeight: '700' },
   closeBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#1A1A1A', alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 24 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: TEXT },
   emptyText: { fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 20 },
   item: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: '#1A1A1A' },
+  itemUnread: { backgroundColor: '#FFFFFF08' },
   iconBox: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  itemTitle: { fontSize: 14, fontWeight: '700', color: TEXT },
+  itemTitle: { fontSize: 14, fontWeight: '700', color: MUTED },
   itemBody: { fontSize: 12, color: MUTED, marginTop: 3, lineHeight: 18 },
   itemTime: { fontSize: 11, color: '#555', marginTop: 4 },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: GOLD, marginTop: 6 },
 });
 
 const summaryStyles = StyleSheet.create({

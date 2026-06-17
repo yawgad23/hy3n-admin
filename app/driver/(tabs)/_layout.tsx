@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Linking, Clipboard } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,17 +14,44 @@ const BORDER = '#2A2A2A';
 const MUTED = '#9CA3AF';
 
 // ─── Commission Gate ──────────────────────────────────────────────────────────
-function CommissionGate({ driver }: { driver: any }) {
+type CommissionStatus = 'idle' | 'pending' | 'confirmed' | 'rejected';
+
+function CommissionGate({ driver, onConfirmed }: { driver: any; onConfirmed: () => void }) {
   const colors = useColors();
-  // Fee based on vehicle type: GH₵50 for cars, GH₵30 for okada/delivery
-  const vehicleType = (driver.vehicle_type || driver.category || '').toLowerCase();
+  const vehicleType = (driver.service_type || driver.vehicle_type || driver.category || '').toLowerCase();
   const isOkadaOrDelivery = vehicleType.includes('okada') || vehicleType.includes('motor') || vehicleType.includes('delivery') || vehicleType.includes('bike');
   const feeAmount = isOkadaOrDelivery ? 30 : 50;
-  const [amount, setAmount] = useState(String(feeAmount));
   const [reference, setReference] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
+  const [commissionStatus, setCommissionStatus] = useState<CommissionStatus>('idle');
+  const [commissionRecord, setCommissionRecord] = useState<any>(null);
   const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  // Poll for status updates every 10s while pending
+  useEffect(() => {
+    if (commissionStatus !== 'pending') return;
+    const driverId = driver.user_id || driver.id;
+    const today = new Date().toISOString().split('T')[0];
+    const poll = setInterval(() => {
+      firestoreDB.list(COLLECTIONS.DAILY_COMMISSION, { driver_id: driverId, date: today })
+        .then((records: any[]) => {
+          const rec = records[0];
+          if (!rec) return;
+          setCommissionRecord(rec);
+          if (rec.status === 'confirmed') {
+            setCommissionStatus('confirmed');
+            clearInterval(poll);
+            setTimeout(onConfirmed, 1500);
+          } else if (rec.status === 'rejected') {
+            setCommissionStatus('rejected');
+            clearInterval(poll);
+          }
+        })
+        .catch(() => {});
+    }, 10000);
+    return () => clearInterval(poll);
+  }, [commissionStatus]);
 
   const handleSubmit = async () => {
     if (!reference.trim()) {
@@ -36,35 +63,112 @@ function CommissionGate({ driver }: { driver: any }) {
     try {
       const today = new Date().toISOString().split('T')[0];
       const driverId = driver.user_id || driver.id;
-      await firestoreDB.create(COLLECTIONS.DAILY_COMMISSION, {
+      const rec = await firestoreDB.create(COLLECTIONS.DAILY_COMMISSION, {
         driver_id: driverId,
         driver_name: driver.full_name,
         date: today,
-        amount: parseFloat(amount) || feeAmount,
+        amount: feeAmount,
         reference: reference.trim(),
         status: 'pending',
         submitted_at: new Date().toISOString(),
       });
-      setSubmitted(true);
-    } catch (err: any) {
+      setCommissionRecord(rec);
+      setCommissionStatus('pending');
+    } catch {
       setError('Failed to submit. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  if (submitted) {
+  const handleResubmit = async () => {
+    // Delete rejected record, go back to idle
+    if (commissionRecord?.id) {
+      try { await firestoreDB.delete(COLLECTIONS.DAILY_COMMISSION, commissionRecord.id); } catch {}
+    }
+    setCommissionRecord(null);
+    setReference('');
+    setCommissionStatus('idle');
+    setError('');
+  };
+
+  const handleCopyNumber = () => {
+    Clipboard.setString('0546728330');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ── Confirmed ──
+  if (commissionStatus === 'confirmed') {
     return (
       <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
         <MaterialIcons name="check-circle" size={72} color="#22C55E" />
-        <Text style={[styles.gateTitle, { color: colors.foreground }]}>Payment Submitted!</Text>
+        <Text style={[styles.gateTitle, { color: '#22C55E' }]}>Commission Confirmed!</Text>
         <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
-          Your payment is being verified by admin. You'll be able to go online once confirmed. This usually takes a few minutes.
+          Your payment has been verified. You're all set — going online now!
         </Text>
       </View>
     );
   }
 
+  // ── Pending ──
+  if (commissionStatus === 'pending') {
+    return (
+      <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.gateIconBox, { backgroundColor: '#F59E0B20' }]}>
+          <MaterialIcons name="access-time" size={40} color="#F59E0B" />
+        </View>
+        <Text style={[styles.gateTitle, { color: colors.foreground }]}>Payment Submitted</Text>
+        <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
+          Waiting for admin confirmation. This usually takes a few minutes. The app will update automatically.
+        </Text>
+        <View style={[styles.commissionCard, { backgroundColor: colors.surface, borderColor: '#F59E0B40' }]}>
+          <Text style={[styles.commissionLabel, { color: colors.muted }]}>Reference Submitted</Text>
+          <Text style={[styles.commissionAmount, { color: '#F59E0B', fontSize: 18 }]}>
+            {commissionRecord?.reference || reference}
+          </Text>
+          <Text style={[styles.commissionMomo, { color: colors.muted, marginTop: 4 }]}>
+            Amount: <Text style={{ color: colors.foreground, fontWeight: '700' }}>GH₵{feeAmount}</Text>
+          </Text>
+        </View>
+        <View style={styles.pendingDots}>
+          <Text style={{ color: '#F59E0B', fontSize: 13 }}>Checking every 10 seconds...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  // ── Rejected ──
+  if (commissionStatus === 'rejected') {
+    return (
+      <View style={[styles.gateContainer, { backgroundColor: colors.background }]}>
+        <View style={[styles.gateIconBox, { backgroundColor: '#EF444420' }]}>
+          <MaterialIcons name="cancel" size={40} color="#EF4444" />
+        </View>
+        <Text style={[styles.gateTitle, { color: '#EF4444' }]}>Payment Rejected</Text>
+        <Text style={[styles.gateSubtitle, { color: colors.muted }]}>
+          Your commission payment was rejected. Please resubmit with the correct MoMo reference number.
+        </Text>
+        <View style={[styles.commissionCard, { backgroundColor: colors.surface, borderColor: '#EF444440' }]}>
+          <Text style={[styles.commissionLabel, { color: '#EF4444' }]}>Rejected Reference</Text>
+          <Text style={[styles.commissionAmount, { color: '#EF4444', fontSize: 18 }]}>
+            {commissionRecord?.reference}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.submitBtn, { backgroundColor: GOLD }]}
+          onPress={handleResubmit}
+        >
+          <Text style={styles.submitBtnText}>Resubmit Payment</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => Linking.openURL('mailto:hello@ridehy3n.com')}>
+          <Text style={{ color: colors.muted, fontSize: 13, textDecorationLine: 'underline' }}>Contact Support</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // ── Idle (submit form) ──
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -86,14 +190,25 @@ function CommissionGate({ driver }: { driver: any }) {
         <Text style={[styles.commissionLabel, { color: colors.muted }]}>Daily Platform Fee</Text>
         <Text style={[styles.commissionAmount, { color: GOLD }]}>GH₵ {feeAmount}.00</Text>
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
-        <Text style={[styles.commissionMomo, { color: colors.muted }]}>
-          Send to MoMo:{' '}
-          <Text style={{ color: colors.foreground, fontWeight: '700' }}>0546728330</Text>
-        </Text>
-        <Text style={[styles.commissionMomo, { color: colors.muted }]}>
-          Name:{' '}
-          <Text style={{ color: colors.foreground, fontWeight: '700' }}>HY3N Technologies</Text>
-        </Text>
+        <View style={styles.momoRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.commissionMomo, { color: colors.muted }]}>
+              Send to MoMo: <Text style={{ color: colors.foreground, fontWeight: '700' }}>0546728330</Text>
+            </Text>
+            <Text style={[styles.commissionMomo, { color: colors.muted, marginTop: 4 }]}>
+              Name: <Text style={{ color: colors.foreground, fontWeight: '700' }}>HY3N Technologies</Text>
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[styles.copyBtn, { backgroundColor: copied ? '#22C55E20' : GOLD + '20', borderColor: copied ? '#22C55E40' : GOLD + '40' }]}
+            onPress={handleCopyNumber}
+          >
+            <MaterialIcons name={copied ? 'check' : 'content-copy'} size={16} color={copied ? '#22C55E' : GOLD} />
+            <Text style={{ color: copied ? '#22C55E' : GOLD, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+              {copied ? 'Copied' : 'Copy'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={[styles.inputBox, { borderColor: colors.border, backgroundColor: colors.surface }]}>
@@ -269,7 +384,7 @@ export default function DriverTabLayout() {
   if (!commissionConfirmed) {
     return (
       <View style={{ flex: 1 }}>
-        <CommissionGate driver={driverProfile} />
+        <CommissionGate driver={driverProfile} onConfirmed={() => setCommissionConfirmed(true)} />
         {/* Tab bar still visible */}
         <View style={[styles.staticTabBar, {
           backgroundColor: BG,
@@ -476,4 +591,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  pendingDots: { alignItems: 'center', marginTop: 8 },
+  momoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%' },
+  copyBtn: { alignItems: 'center', justifyContent: 'center', borderRadius: 10, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 8, minWidth: 56 },
 });

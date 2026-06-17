@@ -159,3 +159,25 @@
 - [ ] Share Receipt button inside expanded trip card (completed trips only)
 - [ ] Generates plain-text receipt: rider, date, route, fare, Trip ID, payment method
 - [ ] Opens native share sheet
+
+## Web App Full Parity Pass (Jun 17 — second pass)
+
+- [x] Earnings tab: correct commission model (100% fare retention, flat daily fee)
+- [x] Earnings tab: correct tier thresholds (0/50/150/300)
+- [x] Earnings tab: KPI cards (today earnings, this week, avg hourly rate, all-time)
+- [x] Earnings tab: week/4-week toggle with bar charts
+- [x] Earnings tab: acceptance rate card with progress bar
+- [x] Earnings tab: streak/flame card
+- [x] Earnings tab: all-time performance summary grid
+- [x] Profile tab: correct tier thresholds (0/50/150/300)
+- [x] Profile tab: verification checklist card (Identity, License, Vehicle, Background, Phone)
+- [x] Profile tab: always-visible safety score with grade circle (A+/A/B/C/D/F)
+- [x] Profile tab: hero gradient layout with stats row
+- [x] Commission Gate: confirmed/rejected/pending/resubmit state machine
+- [x] Commission Gate: 10s auto-poll while pending, auto-advance on confirmed
+- [x] Commission Gate: copy MoMo number button
+- [x] Notification Center: reads from Firestore notifications collection (primary)
+- [x] Notification Center: commission status notifications (confirmed/rejected/pending)
+- [x] Notification Center: rating_received and support_reply types
+- [x] Notification Center: mark-all-read writes back to Firestore
+- [x] Notification Center: unread badges and dot indicators
