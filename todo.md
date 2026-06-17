@@ -182,6 +182,16 @@
 - [x] Notification Center: mark-all-read writes back to Firestore
 - [x] Notification Center: unread badges and dot indicators
 
+## Ride History & Account Stats Bug Fix (Jun 17)
+
+- [x] Activity tab queries wrong collection (RideRequests) — fixed to use correct 'rides' collection
+- [x] Activity tab uses wrong orderBy field (created_date) — fixed to use 'created_at'
+- [x] Activity tab onRefresh doesn't reload rides — fixed to call loadRides()
+- [x] Activity tab normalizes destination/pickup from nested objects to flat address strings
+- [x] Account tab shows hardcoded '24' total rides — fixed to use real riderProfile.total_rides
+- [x] Account tab shows hardcoded '4.9' rating — fixed to use real riderProfile.rating
+- [x] handleFinishRide now increments total_rides on riderProfile when a completed trip is dismissed
+
 ## Nearby Cars Map Parity (Jun 17)
 
 - [x] Rider home map shows nearby available cars around the user before booking, like the web app

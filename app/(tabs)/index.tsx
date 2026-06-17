@@ -121,7 +121,7 @@ const STATUS_LABELS: Record<string, string> = {
 const SURGE = getSurgeMultiplier();
 
 export default function HomeScreen() {
-  const { user, riderProfile } = useAuth();
+  const { user, riderProfile, updateProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const safeTop = insets.top > 0 ? insets.top : (Constants.statusBarHeight ?? 44);
   const [userLocation, setUserLocation] = useState<[number, number]>(DEFAULT_LOCATION);
@@ -536,6 +536,11 @@ export default function HomeScreen() {
   };
 
   const handleFinishRide = () => {
+    // Increment total_rides on the rider's profile when they finish a completed trip
+    if (activeRide?.status === 'completed' && user) {
+      const newTotal = (riderProfile?.total_rides ?? 0) + 1;
+      updateProfile({ total_rides: newTotal }).catch(() => {});
+    }
     setActiveRide(null);
     setDestination(null);
     setSplitData(null);

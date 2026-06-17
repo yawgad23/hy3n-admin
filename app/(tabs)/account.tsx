@@ -265,9 +265,9 @@ export default function AccountScreen() {
         {/* Stats Row */}
         <View style={{ flexDirection: "row", marginHorizontal: 16, gap: 8, marginBottom: 16 }}>
           {[
-            { label: "Total Rides", value: "24", icon: "directions-car" as const, color: GREEN },
+            { label: "Total Rides", value: riderProfile?.total_rides != null ? `${riderProfile.total_rides}` : '0', icon: "directions-car" as const, color: GREEN },
             { label: "Loyalty Points", value: `${userPoints}`, icon: "star" as const, color: GOLD },
-            { label: "Rating", value: "4.9", icon: "thumb-up" as const, color: "#4A90E2" },
+            { label: "Rating", value: riderProfile?.rating != null ? riderProfile.rating.toFixed(1) : '—', icon: "thumb-up" as const, color: "#4A90E2" },
           ].map((stat, i) => (
             <View key={i} style={{ flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 12, alignItems: "center", borderWidth: 0.5, borderColor: BORDER }}>
               <MaterialIcons name={stat.icon} size={18} color={stat.color} />
