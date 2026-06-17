@@ -9,6 +9,7 @@ import { useDriverAuth } from '@/lib/driver-auth-context';
 import { firestoreDB, COLLECTIONS } from '@/lib/firebase';
 import { router } from 'expo-router';
 import { Linking } from 'react-native';
+import { RideChatModal, useUnreadChatCount } from '@/components/ride-chat-modal';
 
 const openNavigation = (location: { name: string; address: string; lat?: number; lng?: number } | string) => {
   let lat: number | undefined;
@@ -91,6 +92,8 @@ export default function DriverHomeScreen() {
   const [countdown, setCountdown] = useState(20);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [chatOpen, setChatOpen] = useState(false);
+  const unreadCount = useUnreadChatCount(activeTrip?.id || null, user?.uid || '', 'driver');
 
   // Pulse animation for online indicator
   useEffect(() => {
@@ -314,12 +317,23 @@ export default function DriverHomeScreen() {
             </View>
             <View style={styles.tripFareRow}>
               <Text style={styles.tripFare}>GH₵{activeTrip.fare.toFixed(2)}</Text>
-              {activeTrip.rider_phone && (
-                <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${activeTrip.rider_phone}`)}>
-                  <MaterialIcons name="phone" size={18} color={GOLD} />
-                  <Text style={styles.callBtnText}>Call Rider</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {activeTrip.rider_phone && (
+                  <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${activeTrip.rider_phone}`)}>
+                    <MaterialIcons name="phone" size={18} color={GOLD} />
+                    <Text style={styles.callBtnText}>Call</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.callBtn, { backgroundColor: '#1A1400', borderColor: GOLD, borderWidth: 1 }]} onPress={() => setChatOpen(true)}>
+                  <MaterialIcons name="chat" size={18} color={GOLD} />
+                  <Text style={styles.callBtnText}>Chat</Text>
+                  {unreadCount > 0 && (
+                    <View style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#EF4444', borderRadius: 8, width: 16, height: 16, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '700' }}>{unreadCount}</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
-              )}
+              </View>
             </View>
             {/* Navigation buttons */}
             <View style={styles.navBtnRow}>
@@ -456,6 +470,18 @@ export default function DriverHomeScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* In-app Chat Modal */}
+      {activeTrip && (
+        <RideChatModal
+          isOpen={chatOpen}
+          onClose={() => setChatOpen(false)}
+          rideId={activeTrip.id}
+          currentUserId={user?.uid || ''}
+          currentUserRole="driver"
+          currentUserName={driverProfile?.full_name || 'Driver'}
+        />
+      )}
     </View>
   );
 }
