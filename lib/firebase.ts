@@ -101,6 +101,8 @@ export const COLLECTIONS = {
   PROMO_CODES: 'promo_codes',
   PAYMENTS: 'payments',
   RIDE_REPORTS: 'ride_reports',
+  DRIVER_PROFILES: 'DriverProfile',
+  DAILY_COMMISSION: 'DailyCommission',
 };
 
 // ─── Auth Helpers ─────────────────────────────────────────────────────────────
