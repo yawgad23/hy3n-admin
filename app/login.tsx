@@ -48,27 +48,30 @@ export default function LoginScreen() {
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState('');
 
   // Email state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   // ── Phone OTP ──────────────────────────────────────────────────────────────
   const handleSendOTP = async () => {
+    setPhoneError('');
     const digits = phone.trim().replace(/\s/g, '');
     const fullNumber = '+233' + digits.replace(/^\+?233/, '').replace(/^0/, '');
     if (digits.length < 9) {
-      Alert.alert('Invalid Number', 'Please enter your 9-digit Ghana mobile number (e.g. 241234567)');
+      setPhoneError('Please enter your 9-digit Ghana mobile number (e.g. 241234567)');
       return;
     }
     if (Platform.OS === 'web') {
-      Alert.alert('Phone Login', 'Phone OTP is not available on web. Please use the Email tab to log in.', [{ text: 'Switch to Email', onPress: () => setTab('email') }, { text: 'OK' }]);
+      setPhoneError('Phone OTP is not available on web. Please use the Email tab to log in.');
       return;
     }
     if (!recaptchaVerifier.current) {
-      Alert.alert('Error', 'Recaptcha not ready. Please try again.');
+      setPhoneError('Recaptcha not ready. Please try again.');
       return;
     }
     setPhoneLoading(true);
@@ -76,17 +79,12 @@ export default function LoginScreen() {
       const provider = new PhoneAuthProvider(auth);
       const vid = await provider.verifyPhoneNumber(fullNumber, recaptchaVerifier.current);
       setVerificationId(vid);
-      Alert.alert('OTP Sent', `A verification code has been sent to ${fullNumber}`);
     } catch (err: any) {
       const code = err?.code || '';
       if (code === 'auth/operation-not-supported-in-this-environment') {
-        Alert.alert(
-          'Phone Login',
-          'Phone OTP works on real iOS/Android devices with the published app. Please use the Email tab to log in while testing in Expo Go.',
-          [{ text: 'Switch to Email', onPress: () => setTab('email') }, { text: 'OK' }]
-        );
+        setPhoneError('Phone OTP works on real iOS/Android devices. Please use the Email tab to log in.');
       } else {
-        Alert.alert('Error', err.message || 'Failed to send OTP. Please try again.');
+        setPhoneError(err.message || 'Failed to send OTP. Please try again.');
       }
     } finally {
       setPhoneLoading(false);
@@ -94,8 +92,9 @@ export default function LoginScreen() {
   };
 
   const handleVerifyOTP = async () => {
+    setPhoneError('');
     if (!otp.trim() || otp.length < 6) {
-      Alert.alert('Invalid Code', 'Please enter the 6-digit verification code');
+      setPhoneError('Please enter the 6-digit verification code');
       return;
     }
     if (!verificationId) return;
@@ -105,7 +104,7 @@ export default function LoginScreen() {
       await signInWithCredential(auth, credential);
       router.replace('/(tabs)' as any);
     } catch (err: any) {
-      Alert.alert('Verification Failed', err.message || 'Invalid verification code. Please try again.');
+      setPhoneError(err.message || 'Invalid verification code. Please try again.');
     } finally {
       setOtpLoading(false);
     }
@@ -113,8 +112,9 @@ export default function LoginScreen() {
 
   // ── Email Login ────────────────────────────────────────────────────────────
   const handleEmailLogin = async () => {
+    setEmailError('');
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please enter your email and password');
+      setEmailError('Please enter your email and password');
       return;
     }
     setEmailLoading(true);
@@ -124,11 +124,11 @@ export default function LoginScreen() {
     } catch (err: any) {
       const code = err?.code || '';
       if (code === 'auth/user-not-found' || code === 'auth/wrong-password' || code === 'auth/invalid-credential') {
-        Alert.alert('Login Failed', 'Incorrect email or password. Please try again.');
+        setEmailError('Incorrect email or password. Please try again.');
       } else if (code === 'auth/too-many-requests') {
-        Alert.alert('Too Many Attempts', 'Account temporarily locked. Please reset your password or try again later.');
+        setEmailError('Account temporarily locked. Please reset your password or try again later.');
       } else {
-        Alert.alert('Login Failed', err.message || 'Something went wrong. Please try again.');
+        setEmailError(err.message || 'Something went wrong. Please try again.');
       }
     } finally {
       setEmailLoading(false);
@@ -206,6 +206,7 @@ export default function LoginScreen() {
                   />
                 </View>
                 <Text style={styles.hint}>Enter your Ghana mobile number (e.g. 24 123 4567)</Text>
+                {!!phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
                 <TouchableOpacity
                   style={[styles.btn, phoneLoading && styles.btnDisabled]}
                   onPress={handleSendOTP}
@@ -292,6 +293,7 @@ export default function LoginScreen() {
               </TouchableOpacity>
             </View>
 
+            {!!emailError && <Text style={styles.errorText}>{emailError}</Text>}
             <TouchableOpacity onPress={() => router.push('/forgot-password' as any)} style={styles.forgotRow}>
               <Text style={styles.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
@@ -424,4 +426,5 @@ const styles = StyleSheet.create({
   registerText: { color: MUTED, fontSize: 15 },
   registerLink: { color: GOLD, fontSize: 15, fontWeight: '700' },
   terms: { textAlign: 'center', color: MUTED, fontSize: 12, lineHeight: 18 },
+  errorText: { color: '#EF4444', fontSize: 13, marginBottom: 8, textAlign: 'center' },
 });
