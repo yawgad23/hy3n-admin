@@ -414,14 +414,48 @@ export default function HomeScreen() {
               </View>
             </View>
 
-            {/* Driver Details */}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, padding: 12, backgroundColor: CARD, borderRadius: 14, marginBottom: 10, borderWidth: 0.5, borderColor: BORDER }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `${GOLD}33`, alignItems: "center", justifyContent: "center" }}>
-                <MaterialIcons name="star" size={20} color={GOLD} />
+            {/* Driver Card — full profile */}
+            <View style={{ backgroundColor: CARD, borderRadius: 16, marginBottom: 10, borderWidth: 0.5, borderColor: BORDER, overflow: "hidden" }}>
+              {/* Top: avatar + name + ETA */}
+              <View style={{ flexDirection: "row", alignItems: "center", padding: 14, gap: 14 }}>
+                {/* Avatar */}
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: `${GREEN}33`, alignItems: "center", justifyContent: "center", borderWidth: 2, borderColor: GREEN }}>
+                  <MaterialIcons name="person" size={36} color={GREEN} />
+                </View>
+                {/* Name + rating + vehicle */}
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: TEXT, fontWeight: "800", fontSize: 17, marginBottom: 2 }}>{activeRide.driverName || "Your Driver"}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 4 }}>
+                    {[1,2,3,4,5].map(i => (
+                      <MaterialIcons key={i} name="star" size={13} color={i <= Math.round(activeRide.driverRating ?? 5) ? GOLD : BORDER} />
+                    ))}
+                    <Text style={{ color: MUTED, fontSize: 12, marginLeft: 2 }}>{activeRide.driverRating?.toFixed(1)}</Text>
+                  </View>
+                  <Text style={{ color: MUTED, fontSize: 12 }}>{activeRide.driverVehicle}</Text>
+                </View>
+                {/* Plate badge */}
+                <View style={{ backgroundColor: `${GOLD}22`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: `${GOLD}55` }}>
+                  <Text style={{ color: GOLD, fontWeight: "800", fontSize: 13, letterSpacing: 1 }}>{activeRide.driverPlate}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: TEXT, fontWeight: "600", fontSize: 13 }}>{activeRide.driverRating?.toFixed(1)} ★ Rating</Text>
-                <Text style={{ color: MUTED, fontSize: 11 }}>{activeRide.driverVehicle} • {activeRide.driverPlate}</Text>
+              {/* Divider */}
+              <View style={{ height: 0.5, backgroundColor: BORDER, marginHorizontal: 14 }} />
+              {/* Bottom: call + message buttons */}
+              <View style={{ flexDirection: "row", padding: 12, gap: 10 }}>
+                <TouchableOpacity
+                  onPress={() => Alert.alert("Call Driver", `Calling ${activeRide.driverName}...`)}
+                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: GREEN }}
+                >
+                  <MaterialIcons name="phone" size={18} color="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Call</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => Alert.alert("Message Driver", `Messaging ${activeRide.driverName}...`)}
+                  style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: `${GOLD}22`, borderWidth: 1, borderColor: `${GOLD}55` }}
+                >
+                  <MaterialIcons name="chat" size={18} color={GOLD} />
+                  <Text style={{ color: GOLD, fontWeight: "700", fontSize: 14 }}>Message</Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -782,8 +816,8 @@ export default function HomeScreen() {
           <MaterialIcons name="search" size={22} color="#000" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 16 }}>Where to?</Text>
-          <Text style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>Enter your destination</Text>
+          <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 16 }}>Wo kɔ he?</Text>
+          <Text style={{ color: MUTED, fontSize: 12, marginTop: 2 }}>Hwɛ wo bɛkyerɛ...</Text>
         </View>
         <MaterialIcons name="location-on" size={20} color={MUTED} />
       </TouchableOpacity>
@@ -890,7 +924,7 @@ export default function HomeScreen() {
             <TextInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Search destination..."
+              placeholder="Hwɛ wo bɛkyerɛ..."
               placeholderTextColor={MUTED}
               autoFocus
               style={{ flex: 1, color: TEXT, fontSize: 16, paddingVertical: 8 }}

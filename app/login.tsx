@@ -272,7 +272,7 @@ export default function LoginScreen() {
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Google Sign-In (requires native build) */}
+        {/* Google Sign-In */}
         <TouchableOpacity
           style={styles.googleBtn}
           onPress={() => Alert.alert(
@@ -280,9 +280,10 @@ export default function LoginScreen() {
             'Google Sign-In is available in the published app. Please use Phone or Email login for now.',
             [{ text: 'OK' }]
           )}
+          activeOpacity={0.85}
         >
           <View style={styles.googleIcon}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#4285F4' }}>G</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900', color: '#4285F4' }}>G</Text>
           </View>
           <Text style={styles.googleText}>Continue with Google</Text>
         </TouchableOpacity>
@@ -345,11 +346,11 @@ const styles = StyleSheet.create({
   dividerText: { color: MUTED, fontSize: 13, marginHorizontal: 12 },
   googleBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    height: 52, borderRadius: 12, borderWidth: 1, borderColor: BORDER,
-    backgroundColor: CARD, marginBottom: 24, gap: 10,
+    height: 56, borderRadius: 12, borderWidth: 2, borderColor: '#4285F4',
+    backgroundColor: '#fff', marginBottom: 24, gap: 12,
   },
-  googleIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
-  googleText: { color: TEXT, fontSize: 15, fontWeight: '600' },
+  googleIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
+  googleText: { color: '#1F1F1F', fontSize: 16, fontWeight: '700' },
   registerRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 16 },
   registerText: { fontSize: 14, color: MUTED },
   registerLink: { fontSize: 14, fontWeight: '700', color: GOLD },
