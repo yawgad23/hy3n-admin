@@ -2,6 +2,12 @@ import React, { useRef, forwardRef, useImperativeHandle } from "react";
 import { View, Platform } from "react-native";
 import { WebView } from "react-native-webview";
 
+interface NearbyDriver {
+  id: string;
+  current_lat?: number;
+  current_lng?: number;
+}
+
 interface LeafletMapProps {
   style?: object;
   center?: [number, number]; // [lat, lng]
@@ -9,6 +15,7 @@ interface LeafletMapProps {
   userLocation?: [number, number];
   destination?: [number, number] | null;
   driverLocation?: [number, number] | null;
+  nearbyDrivers?: NearbyDriver[];
 }
 
 export interface LeafletMapRef {
@@ -24,6 +31,7 @@ const LeafletMap = forwardRef<LeafletMapRef, LeafletMapProps>(function LeafletMa
     userLocation,
     destination = null,
     driverLocation = null,
+    nearbyDrivers = [],
   },
   ref
 ) {
@@ -45,6 +53,11 @@ const LeafletMap = forwardRef<LeafletMapRef, LeafletMapProps>(function LeafletMa
   const destLng = destination ? destination[1] : null;
   const driverLat = driverLocation ? driverLocation[0] : null;
   const driverLng = driverLocation ? driverLocation[1] : null;
+
+  // Serialize nearby drivers for injection into the WebView HTML
+  const nearbyDriversJson = JSON.stringify(
+    nearbyDrivers.filter(d => d.current_lat != null && d.current_lng != null)
+  );
 
   // Dark tile layer — CartoDB Dark Matter (no API key needed)
   const html = `<!DOCTYPE html>
@@ -117,7 +130,19 @@ const LeafletMap = forwardRef<LeafletMapRef, LeafletMapProps>(function LeafletMa
       className: '',
     });
     var driverMarker = L.marker([${driverLat}, ${driverLng}], { icon: driverIcon }).addTo(map);
-    ` : ""}
+    ` : `
+    // Nearby available driver dots (only shown when no active driver is assigned)
+    var nearbyIcon = L.divIcon({
+      html: '<div style="width:22px;height:22px;border-radius:50%;background:#006B3F;border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,107,63,0.5);display:flex;align-items:center;justify-content:center;"><div style="width:6px;height:6px;border-radius:50%;background:#fff;"></div></div>',
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+      className: '',
+    });
+    var nearbyDrivers = ${nearbyDriversJson};
+    nearbyDrivers.forEach(function(d) {
+      L.marker([d.current_lat, d.current_lng], { icon: nearbyIcon }).addTo(map);
+    });
+    `}
   </script>
 </body>
 </html>`;

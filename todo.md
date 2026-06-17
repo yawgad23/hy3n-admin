@@ -181,3 +181,10 @@
 - [x] Notification Center: rating_received and support_reply types
 - [x] Notification Center: mark-all-read writes back to Firestore
 - [x] Notification Center: unread badges and dot indicators
+
+## Nearby Cars Map Parity (Jun 17)
+
+- [x] Rider home map shows nearby available cars around the user before booking, like the web app
+- [x] Rider home map shows a live "cars nearby" indicator when no active ride is in progress
+- [x] Driver app writes current_lat/current_lng to Firestore when going online so riders can see nearby cars
+- [x] Rider app polls nearby available drivers and passes them into the mobile map component

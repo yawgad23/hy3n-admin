@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import * as ExpoLocation from 'expo-location';
 import { useDriverPreferences } from '@/hooks/use-driver-preferences';
 import { trpc } from '@/lib/trpc';
 import {
@@ -557,6 +558,21 @@ export default function DriverHomeScreen() {
       await updateDriverProfile({ is_online: newStatus, is_available: newStatus });
       setIsOnline(newStatus);
       if (!newStatus) setIncomingRequest(null);
+      // When going online, write current GPS location so riders can see nearby cars
+      if (newStatus && driverProfile?.id) {
+        try {
+          const { status } = await ExpoLocation.requestForegroundPermissionsAsync();
+          if (status === 'granted') {
+            const pos = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
+            firestoreDB.update(COLLECTIONS.DRIVER_PROFILES, driverProfile.id, {
+              current_lat: pos.coords.latitude,
+              current_lng: pos.coords.longitude,
+            }).catch(() => {});
+          }
+        } catch {
+          // GPS unavailable — location will update when driver accepts a trip
+        }
+      }
     } catch {
       Alert.alert('Error', 'Failed to update status. Please try again.');
     } finally {
