@@ -18,12 +18,20 @@ const BORDER = '#2A2A2A';
 const TEXT = '#FAFAFA';
 const MUTED = '#9CA3AF';
 
-const CAR_TIERS = [
-  { id: 'standard', label: 'Standard', description: 'Everyday affordable rides' },
-  { id: 'comfort', label: 'Comfort', description: 'Newer cars with extra space' },
-  { id: 'kantanka', label: 'Kantanka', description: 'Mini SUVs (Kantanka Hyen, etc.)' },
-  { id: 'executive', label: 'Executive', description: 'Luxury high-end vehicles' },
+const ALL_CATEGORIES = [
+  { id: 'standard',         label: 'Standard',          description: 'Everyday affordable rides',             icon: 'directions-car' as const },
+  { id: 'comfort',          label: 'Comfort',            description: 'Newer cars with extra space',            icon: 'airline-seat-recline-extra' as const },
+  { id: 'kantanka',         label: 'Kantanka',           description: 'Mini SUVs (Kantanka Hyen, etc.)',        icon: 'directions-car' as const },
+  { id: 'executive',        label: 'Executive',          description: 'Luxury high-end vehicles',               icon: 'star' as const },
+  { id: 'okada',            label: 'Okada',              description: 'Fast motorbike rides',                   icon: 'two-wheeler' as const },
+  { id: 'express_delivery', label: 'Express Delivery',   description: 'Package and parcel deliveries',          icon: 'inventory' as const },
 ];
+
+const CATEGORIES_BY_SERVICE: Record<string, string[]> = {
+  car:      ['standard', 'comfort', 'kantanka', 'executive'],
+  okada:    ['okada'],
+  delivery: ['express_delivery'],
+};
 
 const SERVICE_TYPES = [
   {
@@ -116,7 +124,22 @@ export default function DriverRegisterScreen() {
   const [vehicleFullModel, setVehicleFullModel] = useState('');
   const [city, setCity] = useState('');
   const [serviceType, setServiceType] = useState('');
-  const [carTier, setCarTier] = useState('standard');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  const isKantanka = selectedCategories.includes('kantanka') || serviceType === 'okada' || serviceType === 'delivery';
+  const maxCategories = isKantanka ? 99 : 2;
+
+  const toggleCategory = (id: string) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(id)) return prev.filter(c => c !== id);
+      // Kantanka unlocks all; others capped at 2
+      if (id === 'kantanka') return ['standard', 'comfort', 'kantanka', 'executive'];
+      if (prev.length >= maxCategories) return prev; // silently ignore if at cap
+      return [...prev, id];
+    });
+  };
+
+  const availableCategories = serviceType ? ALL_CATEGORIES.filter(c => CATEGORIES_BY_SERVICE[serviceType]?.includes(c.id)) : [];
   const [ghanaCardFront, setGhanaCardFront] = useState('');
   const [ghanaCardBack, setGhanaCardBack] = useState('');
   const [licenseFront, setLicenseFront] = useState('');
@@ -200,9 +223,8 @@ export default function DriverRegisterScreen() {
       const user = firebaseAuthObj.currentUser;
       if (!user) throw new Error('Not authenticated');
 
-      const rideCategories = serviceType === 'car'
-        ? [carTier]
-        : serviceType === 'okada' ? ['okada'] : ['express_delivery'];
+      const defaultCats = serviceType === 'okada' ? ['okada'] : serviceType === 'delivery' ? ['express_delivery'] : ['standard'];
+      const rideCategories = selectedCategories.length > 0 ? selectedCategories : defaultCats;
 
       const profileData = {
         user_id: user.uid,
@@ -377,21 +399,40 @@ export default function DriverRegisterScreen() {
         </TouchableOpacity>
       ))}
 
-      {serviceType === 'car' && (
+      {availableCategories.length > 0 && (
         <>
-          <Text style={styles.sectionTitle}>Car Tier</Text>
-          <View style={styles.tierGrid}>
-            {CAR_TIERS.map((tier) => (
+          <Text style={styles.sectionTitle}>Ride Categories</Text>
+          <Text style={{ color: MUTED, fontSize: 12, marginBottom: 10, marginTop: -6 }}>
+            {selectedCategories.includes('kantanka')
+              ? 'Kantanka unlocks all categories'
+              : serviceType === 'okada' || serviceType === 'delivery'
+              ? 'Your service type has one fixed category'
+              : `Select up to 2 categories (${selectedCategories.length}/2 selected)`}
+          </Text>
+          {availableCategories.map((cat) => {
+            const selected = selectedCategories.includes(cat.id);
+            return (
               <TouchableOpacity
-                key={tier.id}
-                style={[styles.tierCard, carTier === tier.id && { borderColor: GOLD, backgroundColor: GOLD + '15' }]}
-                onPress={() => setCarTier(tier.id)}
+                key={cat.id}
+                style={[styles.serviceCard, selected && { borderColor: GOLD, backgroundColor: GOLD + '15' }]}
+                onPress={() => toggleCategory(cat.id)}
               >
-                <Text style={[styles.tierLabel, carTier === tier.id && { color: GOLD }]}>{tier.label}</Text>
-                <Text style={styles.tierDesc}>{tier.description}</Text>
+                <View style={[styles.serviceIconBox, selected && { backgroundColor: GOLD + '30' }]}>
+                  <MaterialIcons name={cat.icon} size={22} color={selected ? GOLD : MUTED} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.serviceLabel, selected && { color: GOLD }]}>{cat.label}</Text>
+                  <Text style={styles.serviceDesc}>{cat.description}</Text>
+                </View>
+                <View style={[
+                  { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? GOLD : (!selected && selectedCategories.length >= maxCategories && cat.id !== 'kantanka') ? '#3A3A3A' : BORDER, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? GOLD : 'transparent' }
+                ]}>
+                  {selected && <MaterialIcons name="check" size={14} color="#000" />}
+                  {!selected && selectedCategories.length >= maxCategories && cat.id !== 'kantanka' && <MaterialIcons name="lock" size={12} color="#3A3A3A" />}
+                </View>
               </TouchableOpacity>
-            ))}
-          </View>
+            );
+          })}
         </>
       )}
 
@@ -402,6 +443,7 @@ export default function DriverRegisterScreen() {
         onPress={() => {
           if (!serviceType) { setError('Please select a service type.'); return; }
           if (!fullName.trim() || !phone.trim() || !city.trim()) { setError('Please fill in all fields including city.'); return; }
+          if (selectedCategories.length === 0) { setError('Please select at least one ride category.'); return; }
           setError('');
           setStep(4);
         }}
@@ -427,7 +469,7 @@ export default function DriverRegisterScreen() {
       <Text style={styles.label}>{selectedService?.vehicleLabel || 'Vehicle'} Model</Text>
       <View style={styles.inputWrap}>
         <MaterialIcons name="directions-car" size={18} color={MUTED} style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder={selectedService?.vehiclePlaceholder || 'e.g. Camry 2022'} placeholderTextColor={MUTED} value={vehicleModel} onChangeText={setVehicleModel} />
+        <TextInput style={styles.input} placeholder="e.g. Camry" placeholderTextColor={MUTED} value={vehicleModel} onChangeText={setVehicleModel} />
       </View>
 
       <Text style={styles.label}>License Plate</Text>
@@ -442,10 +484,10 @@ export default function DriverRegisterScreen() {
         <TextInput style={styles.input} placeholder="e.g. Silver" placeholderTextColor={MUTED} value={vehicleColor} onChangeText={setVehicleColor} />
       </View>
 
-      <Text style={styles.label}>Vehicle Full Name / Model</Text>
+      <Text style={styles.label}>Vehicle Year</Text>
       <View style={styles.inputWrap}>
-        <MaterialIcons name="directions-car" size={18} color={MUTED} style={styles.inputIcon} />
-        <TextInput style={styles.input} placeholder="e.g. Toyota Camry 2022" placeholderTextColor={MUTED} value={vehicleFullModel} onChangeText={setVehicleFullModel} autoCapitalize="words" />
+        <MaterialIcons name="calendar-today" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="e.g. 2022" placeholderTextColor={MUTED} value={vehicleFullModel} onChangeText={setVehicleFullModel} keyboardType="numeric" maxLength={4} />
       </View>
 
       <Text style={styles.sectionTitle}>Required Documents</Text>

@@ -253,3 +253,10 @@
 - [x] Add Vehicle Year field to Step 4 (Vehicle & Documents) — saved to Firestore as `vehicle_year`
 - [x] Step 5 confirmation screen matches admin review flow: timeline + 24–48 hr note + WhatsApp support + Go to Driver App
 - [x] All admin-reviewed fields now collected: Full Name, Phone, Email, City, MoMo, Service Type, Vehicle Make/Model/Plate/Color/Year, Ghana Card (front+back), Driver's License (front+back), Selfie, Vehicle Photo, Insurance, Roadworthy
+
+## Ride Category Selection — Registration & Admin (Jun 17)
+
+- [ ] Driver registration Step 3: multi-select ride categories (filtered by service type)
+- [ ] Categories saved to Firestore as `ride_categories` array on driver profile
+- [ ] Admin ApplicationDetailModal: display ride_categories field in Vehicle Info section
+- [ ] Admin ApplicationDetailModal: allow admin to edit/override ride categories before approving
