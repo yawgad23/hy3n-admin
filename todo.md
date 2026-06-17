@@ -183,6 +183,13 @@
 - [x] Notification Center: mark-all-read writes back to Firestore
 - [x] Notification Center: unread badges and dot indicators
 
+## Waiting Time System (Jun 17)
+
+- [ ] Driver app: start waiting timer when driver taps "Arrived at Pickup" (driver_arrived status)
+- [ ] Driver app: show countdown — 3 min free, then GH₵X/min charged, live display
+- [ ] Rider app: show waiting timer countdown when driver has arrived at pickup
+- [ ] Trip complete: calculate and save waiting_fee to Firestore ride document
+
 ## Rating & Receipt Features (Jun 17 — round 2)
 
 - [x] Driver post-trip rating modal: add rider-specific quick tags (Friendly, Ready on time, Good communication, Clean entry, Polite, No issues)

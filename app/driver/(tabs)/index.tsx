@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as ExpoLocation from 'expo-location';
 import { useDriverPreferences } from '@/hooks/use-driver-preferences';
+import { RIDE_CATEGORIES, FREE_WAITING_MINUTES } from '@/constants/rides';
 import { trpc } from '@/lib/trpc';
 import {
   View, Text, TouchableOpacity, StyleSheet, ScrollView,
@@ -428,6 +429,10 @@ export default function DriverHomeScreen() {
   const [driverDestination, setDriverDestination] = useState<string>('');
   const [destModalVisible, setDestModalVisible] = useState(false);
   const [destInput, setDestInput] = useState('');
+  // ─── Waiting Timer ────────────────────────────────────────────────────────────
+  const [waitSeconds, setWaitSeconds] = useState(0);
+  const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const arrivedAtRef = useRef<number | null>(null);
 
   // ─── Voice Call ───────────────────────────────────────────────────────────────
   const riderName = activeTrip?.rider_name || activeTrip?.passenger_name || 'Rider';
@@ -467,6 +472,25 @@ export default function DriverHomeScreen() {
       setDriverDestination('');
     }
   };
+
+  // Waiting timer: starts when driver arrives at pickup, counts billable minutes after 3 free
+  useEffect(() => {
+    if (activeTrip?.status === 'driver_arrived') {
+      if (!arrivedAtRef.current) arrivedAtRef.current = Date.now();
+      waitTimerRef.current = setInterval(() => {
+        setWaitSeconds(Math.floor((Date.now() - (arrivedAtRef.current || Date.now())) / 1000));
+      }, 1000);
+    } else {
+      if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null; }
+      if (activeTrip?.status !== 'driver_arrived') { arrivedAtRef.current = null; setWaitSeconds(0); }
+    }
+    return () => { if (waitTimerRef.current) { clearInterval(waitTimerRef.current); waitTimerRef.current = null; } };
+  }, [activeTrip?.status]);
+
+  const freeWaitSecs = FREE_WAITING_MINUTES * 60;
+  const billableWaitMins = Math.max(0, (waitSeconds - freeWaitSecs) / 60);
+  const waitingFeePerMin = RIDE_CATEGORIES.find(c => c.id === activeTrip?.category)?.waitingFeePerMin ?? 0.55;
+  const currentWaitingFee = parseFloat((billableWaitMins * waitingFeePerMin).toFixed(2));
 
   // Pulse animation for online indicator
   useEffect(() => {
@@ -662,7 +686,11 @@ export default function DriverHomeScreen() {
       const completedAt = new Date().toISOString();
       const extra: any = {};
       if (action === 'start') extra.started_at = completedAt;
-      if (action === 'complete') extra.completed_at = completedAt;
+      if (action === 'complete') {
+        extra.completed_at = completedAt;
+        // Save waiting fee calculated from the live timer
+        if (currentWaitingFee > 0) extra.waiting_fee = currentWaitingFee;
+      }
       await firestoreDB.update(COLLECTIONS.RIDES, activeTrip.id, { status: statusMap[action], ...extra });
       if (action === 'complete') {
         // Re-mark driver as available
@@ -943,6 +971,23 @@ export default function DriverHomeScreen() {
                     </View>
                   ))}
                 </View>
+              </View>
+            )}
+            {/* Waiting Timer — shown when driver is at pickup */}
+            {activeTrip.status === 'driver_arrived' && (
+              <View style={{ backgroundColor: waitSeconds >= freeWaitSecs ? '#1A0A00' : '#0A1A0A', borderRadius: 10, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: waitSeconds >= freeWaitSecs ? GOLD : GREEN, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <MaterialIcons name="access-time" size={16} color={waitSeconds >= freeWaitSecs ? GOLD : GREEN} />
+                  <Text style={{ color: waitSeconds >= freeWaitSecs ? GOLD : GREEN, fontSize: 13, fontWeight: '600' }}>
+                    {waitSeconds < freeWaitSecs
+                      ? `Free waiting: ${Math.floor((freeWaitSecs - waitSeconds) / 60)}m ${(freeWaitSecs - waitSeconds) % 60}s remaining`
+                      : `Waiting fee: GH\u20b5${currentWaitingFee.toFixed(2)} (${Math.floor((waitSeconds - freeWaitSecs) / 60)}m ${(waitSeconds - freeWaitSecs) % 60}s)`
+                    }
+                  </Text>
+                </View>
+                <Text style={{ color: MUTED, fontSize: 11 }}>
+                  {`Waited: ${Math.floor(waitSeconds / 60)}m ${waitSeconds % 60}s · 3 min free, then GH\u20b5${waitingFeePerMin.toFixed(2)}/min`}
+                </Text>
               </View>
             )}
             <View style={styles.tripActions}>

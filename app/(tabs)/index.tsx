@@ -82,7 +82,7 @@ interface ActiveRide {
   fare: number;
   payment: string;
   paymentId: string;
-  status: "searching" | "matched" | "driver_arriving" | "in_progress" | "completed" | "cancelled";
+  status: "searching" | "matched" | "driver_arriving" | "driver_arrived" | "in_progress" | "completed" | "cancelled";
   scheduled?: string | null;
   splitData?: { totalPeople: number; perPersonFare: number } | null;
   driverName?: string;
@@ -233,6 +233,10 @@ export default function HomeScreen() {
   const [showRideOptions, setShowRideOptions] = useState(false);
   // In-ride chat
   const [showChat, setShowChat] = useState(false);
+  // Waiting timer (rider side) — shows how long driver has been waiting at pickup
+  const [riderWaitSeconds, setRiderWaitSeconds] = useState(0);
+  const riderWaitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const riderArrivedAtRef = useRef<number | null>(null);
 
   // ─── Voice Call ───────────────────────────────────────────────────────────────
   const driverName = activeRide?.driverName || 'Driver';
@@ -361,6 +365,26 @@ export default function HomeScreen() {
     }, 1000);
     return () => clearInterval(interval);
   }, [activeRide?.status]);
+
+  // Rider-side waiting timer: starts when driver status is driver_arrived
+  useEffect(() => {
+    if (activeRide?.status === 'driver_arrived') {
+      if (!riderArrivedAtRef.current) riderArrivedAtRef.current = Date.now();
+      riderWaitTimerRef.current = setInterval(() => {
+        setRiderWaitSeconds(Math.floor((Date.now() - (riderArrivedAtRef.current || Date.now())) / 1000));
+      }, 1000);
+    } else {
+      if (riderWaitTimerRef.current) { clearInterval(riderWaitTimerRef.current); riderWaitTimerRef.current = null; }
+      riderArrivedAtRef.current = null;
+      setRiderWaitSeconds(0);
+    }
+    return () => { if (riderWaitTimerRef.current) { clearInterval(riderWaitTimerRef.current); riderWaitTimerRef.current = null; } };
+  }, [activeRide?.status]);
+
+  const riderFreeWaitSecs = FREE_WAITING_MINUTES * 60;
+  const riderBillableWaitMins = Math.max(0, (riderWaitSeconds - riderFreeWaitSecs) / 60);
+  const riderWaitingFeePerMin = RIDE_CATEGORIES.find(c => c.id === activeRide?.category)?.waitingFeePerMin ?? 0.55;
+  const riderCurrentWaitingFee = parseFloat((riderBillableWaitMins * riderWaitingFeePerMin).toFixed(2));
 
   const distance = destination
     ? Math.sqrt(
@@ -716,6 +740,24 @@ export default function HomeScreen() {
                 </TouchableOpacity>
               </View>
             </View>
+
+            {/* Waiting Timer — shown when driver is at pickup */}
+            {activeRide.status === 'driver_arrived' && (
+              <View style={{ backgroundColor: riderWaitSeconds >= riderFreeWaitSecs ? '#1A0A00' : '#0A1A0A', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: riderWaitSeconds >= riderFreeWaitSecs ? GOLD : GREEN, alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <MaterialIcons name="access-time" size={16} color={riderWaitSeconds >= riderFreeWaitSecs ? GOLD : GREEN} />
+                  <Text style={{ color: riderWaitSeconds >= riderFreeWaitSecs ? GOLD : GREEN, fontSize: 13, fontWeight: '600' }}>
+                    {riderWaitSeconds < riderFreeWaitSecs
+                      ? `Driver waiting — ${Math.floor((riderFreeWaitSecs - riderWaitSeconds) / 60)}m ${(riderFreeWaitSecs - riderWaitSeconds) % 60}s free remaining`
+                      : `Waiting fee: GH\u20b5${riderCurrentWaitingFee.toFixed(2)} (${Math.floor((riderWaitSeconds - riderFreeWaitSecs) / 60)}m ${(riderWaitSeconds - riderFreeWaitSecs) % 60}s)`
+                    }
+                  </Text>
+                </View>
+                <Text style={{ color: MUTED, fontSize: 11 }}>
+                  {`Your driver has been waiting ${Math.floor(riderWaitSeconds / 60)}m ${riderWaitSeconds % 60}s · 3 min free`}
+                </Text>
+              </View>
+            )}
 
             {/* Trip Route */}
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10, padding: 14, backgroundColor: `${CARD}`, borderRadius: 14, marginBottom: 10, borderWidth: 0.5, borderColor: BORDER, borderLeftWidth: 3, borderLeftColor: GOLD }}>
