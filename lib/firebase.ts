@@ -233,6 +233,23 @@ export const firestoreDB = {
       callback(snapshotToArray(snap));
     });
   },
+
+  /** Subscribe to a single document by ID. Calls callback with data or null if deleted. */
+  subscribeDoc(collectionName: string, id: string, callback: (data: any | null) => void) {
+    const docRef = doc(db, collectionName, id);
+    return onSnapshot(docRef, (snap) => {
+      callback(snap.exists() ? { id: snap.id, ...snap.data() } : null);
+    });
+  },
+
+  /** Set (overwrite) a document by ID. */
+  async set(collectionName: string, id: string, data: Record<string, any>) {
+    const { setDoc: fsSetDoc } = await import('firebase/firestore');
+    const docRef = doc(db, collectionName, id);
+    const payload = { ...data, updated_date: new Date().toISOString() };
+    await fsSetDoc(docRef, payload);
+    return { id, ...payload };
+  },
 };
 
 // ─── Storage Helpers ──────────────────────────────────────────────────────────

@@ -13,6 +13,8 @@ import { firestoreDB, COLLECTIONS } from '@/lib/firebase';
 import { router } from 'expo-router';
 import { Linking } from 'react-native';
 import { RideChatModal, useUnreadChatCount } from '@/components/ride-chat-modal';
+import { useVoiceCall } from '@/hooks/use-voice-call';
+import { InCallScreen, IncomingCallModal } from '@/components/in-call-screen';
 
 // ─── Navigation helper ────────────────────────────────────────────────────────
 const openNavigation = (location: { name: string; address: string; lat?: number; lng?: number } | string) => {
@@ -404,6 +406,27 @@ export default function DriverHomeScreen() {
   const [driverDestination, setDriverDestination] = useState<string>('');
   const [destModalVisible, setDestModalVisible] = useState(false);
   const [destInput, setDestInput] = useState('');
+
+  // ─── Voice Call ───────────────────────────────────────────────────────────────
+  const riderName = activeTrip?.rider_name || activeTrip?.passenger_name || 'Rider';
+  const riderPhone = (activeTrip as any)?.rider_phone || (activeTrip as any)?.passenger_phone;
+  const riderId = (activeTrip as any)?.rider_id || (activeTrip as any)?.passenger_id;
+  const call = useVoiceCall({
+    rideId: activeTrip?.id,
+    myId: user?.uid,
+    myName: driverProfile?.full_name || 'Driver',
+    myRole: 'driver',
+    otherName: riderName,
+  });
+
+  const handleCallRider = () => {
+    if (!activeTrip) return;
+    if (riderId) {
+      call.startCall(riderId);
+    } else if (riderPhone) {
+      Linking.openURL(`tel:${riderPhone}`);
+    }
+  };
 
   // Load persisted destination on mount
   useEffect(() => {
@@ -839,8 +862,8 @@ export default function DriverHomeScreen() {
             <View style={styles.tripFareRow}>
               <Text style={styles.tripFare}>GH₵{activeTrip.fare.toFixed(2)}</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                {activeTrip.rider_phone && (
-                  <TouchableOpacity style={styles.callBtn} onPress={() => Linking.openURL(`tel:${activeTrip.rider_phone}`)}>
+                {(riderId || riderPhone) && (
+                  <TouchableOpacity style={styles.callBtn} onPress={handleCallRider}>
                     <MaterialIcons name="phone" size={18} color={GOLD} />
                     <Text style={styles.callBtnText}>Call</Text>
                   </TouchableOpacity>
@@ -1068,6 +1091,21 @@ export default function DriverHomeScreen() {
         onClose={() => { setSummaryVisible(false); setCompletedTrip(null); }}
         trip={completedTrip}
         onSubmit={handleSummarySubmit}
+      />
+
+      {/* Voice Call — full-screen overlay when in call */}
+      <InCallScreen
+        call={call}
+        otherName={riderName}
+        otherRole="rider"
+        otherPhone={riderPhone}
+      />
+
+      {/* Incoming call modal — shown when rider calls driver */}
+      <IncomingCallModal
+        call={call}
+        otherName={riderName}
+        otherRole="rider"
       />
     </View>
   );

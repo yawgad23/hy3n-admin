@@ -41,6 +41,8 @@ import {
 } from "@/lib/notifications";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { RideChatModal } from "@/components/ride-chat-modal";
+import { useVoiceCall } from "@/hooks/use-voice-call";
+import { InCallScreen, IncomingCallModal } from "@/components/in-call-screen";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -207,6 +209,29 @@ export default function HomeScreen() {
   const [showRideOptions, setShowRideOptions] = useState(false);
   // In-ride chat
   const [showChat, setShowChat] = useState(false);
+
+  // ─── Voice Call ───────────────────────────────────────────────────────────────
+  const driverName = activeRide?.driverName || 'Driver';
+  const driverPhone = (activeRide as any)?.driverPhone;
+  const driverId = (activeRide as any)?.driverId || (activeRide as any)?.driver_id;
+  const riderCall = useVoiceCall({
+    rideId: activeRide?.firestoreId,
+    myId: user?.uid,
+    myName: user?.displayName || 'Rider',
+    myRole: 'rider',
+    otherName: driverName,
+  });
+
+  const handleCallDriver = () => {
+    if (!activeRide) return;
+    if (driverId) {
+      riderCall.startCall(driverId);
+    } else if (driverPhone) {
+      Linking.openURL(`tel:${driverPhone}`);
+    } else {
+      Alert.alert('Call Driver', 'Driver contact not available yet.');
+    }
+  };
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; text: string; fromRider: boolean; time: string }>>([]);
   const [chatInput, setChatInput] = useState("");
   const QUICK_MESSAGES = [
@@ -617,10 +642,7 @@ export default function HomeScreen() {
               {/* Bottom: call + message buttons */}
               <View style={{ flexDirection: "row", padding: 12, gap: 10 }}>
                 <TouchableOpacity
-                  onPress={() => {
-                    if (activeRide.driverPhone) Linking.openURL(`tel:${activeRide.driverPhone}`);
-                    else Alert.alert("Call Driver", `Calling ${activeRide.driverName}...`);
-                  }}
+                  onPress={handleCallDriver}
                   style={{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 11, borderRadius: 12, backgroundColor: GREEN }}
                 >
                   <MaterialIcons name="phone" size={18} color="#fff" />
@@ -1479,6 +1501,21 @@ export default function HomeScreen() {
           currentUserName={riderProfile?.full_name || user?.displayName || 'Rider'}
         />
       )}
+
+      {/* Voice Call — full-screen overlay when in call */}
+      <InCallScreen
+        call={riderCall}
+        otherName={driverName}
+        otherRole="driver"
+        otherPhone={driverPhone}
+      />
+
+      {/* Incoming call modal — shown when driver calls rider */}
+      <IncomingCallModal
+        call={riderCall}
+        otherName={driverName}
+        otherRole="driver"
+      />
 
       {/* Cancel with Reason Modal */}
       <Modal visible={showCancelModal} transparent animationType="slide">
