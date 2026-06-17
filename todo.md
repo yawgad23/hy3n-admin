@@ -237,3 +237,19 @@
 - [x] Driver landing page: single screen with Sign In + Become a Driver buttons (shown only when not logged in)
 - [x] Authenticated drivers skip the landing page and go directly to the driver tabs
 - [x] Remove separate "become a driver" page from the unauthenticated flow (merge into sign-up)
+
+## Driver Onboarding Checklist (Jun 17)
+
+- [x] Onboarding checklist screen shown after registration (pending approval state)
+- [x] Steps: Account Created → Documents Uploaded → Under Review → Approved
+- [x] Each step shows status icon (done/active/pending), title, and description
+- [x] "Under Review" step shows estimated review time and support contact
+- [x] Auto-advances to driver tabs when approval_status changes to 'approved'
+- [x] Checklist replaces the bare ApprovalGate screen
+
+## Driver Registration Form — Admin Alignment (Jun 17)
+
+- [x] Add City field to Step 3 (Personal Details) — saved to Firestore as `city`
+- [x] Add Vehicle Year field to Step 4 (Vehicle & Documents) — saved to Firestore as `vehicle_year`
+- [x] Step 5 confirmation screen matches admin review flow: timeline + 24–48 hr note + WhatsApp support + Go to Driver App
+- [x] All admin-reviewed fields now collected: Full Name, Phone, Email, City, MoMo, Service Type, Vehicle Make/Model/Plate/Color/Year, Ghana Card (front+back), Driver's License (front+back), Selfie, Vehicle Photo, Insurance, Roadworthy

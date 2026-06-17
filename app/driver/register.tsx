@@ -9,6 +9,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as ImagePicker from 'expo-image-picker';
 import { useDriverAuth } from '@/lib/driver-auth-context';
 import { firestoreDB, COLLECTIONS, auth as firebaseAuthObj, firebaseAuth } from '@/lib/firebase';
+import { Linking } from 'react-native';
 
 const GOLD = '#D4AF37';
 const BG = '#0A0A0A';
@@ -112,6 +113,8 @@ export default function DriverRegisterScreen() {
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [vehicleColor, setVehicleColor] = useState('');
+  const [vehicleYear, setVehicleYear] = useState('');
+  const [city, setCity] = useState('');
   const [serviceType, setServiceType] = useState('');
   const [carTier, setCarTier] = useState('standard');
   const [ghanaCardFront, setGhanaCardFront] = useState('');
@@ -211,6 +214,8 @@ export default function DriverRegisterScreen() {
         vehicle_model: vehicleModel,
         license_plate: vehiclePlate,
         vehicle_color: vehicleColor,
+        vehicle_year: vehicleYear,
+        city,
         service_type: serviceType,
         ride_categories: rideCategories,
         ghana_card_front_url: ghanaCardFront,
@@ -342,6 +347,12 @@ export default function DriverRegisterScreen() {
         <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="+233XXXXXXXXX" placeholderTextColor={MUTED} keyboardType="phone-pad" />
       </View>
 
+      <Text style={styles.label}>City</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="location-city" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="e.g. Accra" placeholderTextColor={MUTED} autoCapitalize="words" />
+      </View>
+
       <Text style={styles.label}>MoMo Number (for earnings)</Text>
       <View style={styles.inputWrap}>
         <MaterialIcons name="account-balance-wallet" size={18} color={MUTED} style={styles.inputIcon} />
@@ -390,7 +401,7 @@ export default function DriverRegisterScreen() {
         style={[styles.primaryBtn, { opacity: !serviceType ? 0.5 : 1 }]}
         onPress={() => {
           if (!serviceType) { setError('Please select a service type.'); return; }
-          if (!fullName.trim() || !phone.trim()) { setError('Please fill in all fields.'); return; }
+          if (!fullName.trim() || !phone.trim() || !city.trim()) { setError('Please fill in all fields including city.'); return; }
           setError('');
           setStep(4);
         }}
@@ -431,6 +442,12 @@ export default function DriverRegisterScreen() {
         <TextInput style={styles.input} placeholder="e.g. Silver" placeholderTextColor={MUTED} value={vehicleColor} onChangeText={setVehicleColor} />
       </View>
 
+      <Text style={styles.label}>Vehicle Year</Text>
+      <View style={styles.inputWrap}>
+        <MaterialIcons name="calendar-today" size={18} color={MUTED} style={styles.inputIcon} />
+        <TextInput style={styles.input} placeholder="e.g. 2020" placeholderTextColor={MUTED} value={vehicleYear} onChangeText={setVehicleYear} keyboardType="numeric" maxLength={4} />
+      </View>
+
       <Text style={styles.sectionTitle}>Required Documents</Text>
       <FileUploadField label="Ghana Card (Front)" uri={ghanaCardFront} onPick={setGhanaCardFront} />
       <FileUploadField label="Ghana Card (Back)" uri={ghanaCardBack} onPick={setGhanaCardBack} />
@@ -455,20 +472,60 @@ export default function DriverRegisterScreen() {
   );
 
   const renderStep5 = () => (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-      <MaterialIcons name="check-circle" size={80} color="#22C55E" />
-      <Text style={[styles.stepTitle, { textAlign: 'center', marginTop: 16 }]}>Application Submitted!</Text>
-      <Text style={[styles.stepSubtitle, { textAlign: 'center' }]}>
-        Our admin team will review your details and activate your account within 24-48 hours.
-      </Text>
-      <View style={styles.infoBox}>
-        <MaterialIcons name="info" size={16} color={GOLD} />
-        <Text style={styles.infoText}>You will be notified when your application is approved.</Text>
+    <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }} showsVerticalScrollIndicator={false}>
+      {/* Success icon */}
+      <View style={{ width: 100, height: 100, borderRadius: 50, backgroundColor: '#22C55E20', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+        <MaterialIcons name="check-circle" size={64} color="#22C55E" />
       </View>
-      <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/driver/(tabs)' as any)}>
+      <Text style={[styles.stepTitle, { textAlign: 'center', marginTop: 12 }]}>Application Submitted!</Text>
+      <Text style={[styles.stepSubtitle, { textAlign: 'center', marginBottom: 24 }]}>
+        Our admin team will review your details and activate your account within 24–48 hours.
+      </Text>
+
+      {/* Timeline steps */}
+      <View style={{ width: '100%', backgroundColor: '#111', borderRadius: 16, borderWidth: 1, borderColor: '#2A2A2A', padding: 20, marginBottom: 20, gap: 0 }}>
+        {[
+          { icon: 'check-circle' as const, color: '#22C55E', title: 'Account Created', desc: 'Your account and profile have been saved.' },
+          { icon: 'check-circle' as const, color: '#22C55E', title: 'Documents Uploaded', desc: 'Your vehicle details and documents are on file.' },
+          { icon: 'access-time' as const, color: GOLD, title: 'Under Review', desc: 'Our team is verifying your documents (24–48 hrs).' },
+          { icon: 'radio-button-unchecked' as const, color: '#2A2A2A', title: 'Approved & Ready', desc: 'You will receive a notification when approved.' },
+        ].map((item, idx, arr) => (
+          <View key={item.title} style={{ flexDirection: 'row', gap: 14, paddingVertical: 10 }}>
+            {/* Icon + connector line */}
+            <View style={{ alignItems: 'center', width: 28 }}>
+              <MaterialIcons name={item.icon} size={24} color={item.color} />
+              {idx < arr.length - 1 && (
+                <View style={{ width: 2, flex: 1, backgroundColor: idx < 2 ? '#22C55E40' : '#2A2A2A', marginTop: 4, minHeight: 16 }} />
+              )}
+            </View>
+            <View style={{ flex: 1, paddingBottom: idx < arr.length - 1 ? 8 : 0 }}>
+              <Text style={{ color: idx < 3 ? '#FAFAFA' : '#9CA3AF', fontWeight: '700', fontSize: 14 }}>{item.title}</Text>
+              <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 2, lineHeight: 17 }}>{item.desc}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+
+      {/* Info box */}
+      <View style={[styles.infoBox, { marginBottom: 20 }]}>
+        <MaterialIcons name="notifications-active" size={16} color={GOLD} />
+        <Text style={styles.infoText}>You will receive a push notification and email once your account is approved.</Text>
+      </View>
+
+      {/* Support */}
+      <TouchableOpacity
+        style={[styles.primaryBtn, { backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#2A2A2A', marginBottom: 12 }]}
+        onPress={() => Linking.openURL('https://wa.me/233546728330?text=Hi%2C%20I%20just%20applied%20to%20be%20an%20HY3N%20driver%20and%20need%20help.')}
+        activeOpacity={0.8}
+      >
+        <MaterialIcons name="support-agent" size={18} color={GOLD} />
+        <Text style={[styles.primaryBtnText, { color: GOLD, marginLeft: 8 }]}>Contact Support</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/driver/(tabs)' as any)} activeOpacity={0.85}>
         <Text style={styles.primaryBtnText}>Go to Driver App</Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 
   return (
