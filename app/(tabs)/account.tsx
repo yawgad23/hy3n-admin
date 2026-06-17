@@ -10,6 +10,7 @@ import {
   Switch,
   Share,
   Platform,
+  Clipboard,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -36,11 +37,13 @@ const LOYALTY_TIERS = [
   { name: "Platinum", minPoints: 3000, maxPoints: Infinity, color: "#E5E4E2" },
 ];
 
+const GHC = "GH₵"; // Ghana Cedis symbol — always use this constant, never \u20B5 in JSX strings
+
 const REWARDS = [
-  { id: "r1", name: "Free Standard Ride", points: 200, description: "Get one free Standard ride up to GH\u20B540", icon: "directions-car" as const },
+  { id: "r1", name: "Free Standard Ride", points: 200, description: `Get one free Standard ride up to ${GHC}40`, icon: "directions-car" as const },
   { id: "r2", name: "10% Discount", points: 100, description: "10% off your next 3 rides", icon: "local-offer" as const },
   { id: "r3", name: "Priority Matching", points: 150, description: "Get matched with top-rated drivers for 7 days", icon: "star" as const },
-  { id: "r4", name: "GH\u20B520 Wallet Credit", points: 250, description: "Add GH\u20B520 directly to your wallet", icon: "account-balance-wallet" as const },
+  { id: "r4", name: `${GHC}20 Wallet Credit`, points: 250, description: `Add ${GHC}20 directly to your wallet`, icon: "account-balance-wallet" as const },
 ];
 
 const FAQ_ITEMS = [
@@ -195,7 +198,7 @@ export default function AccountScreen() {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Join HY3N \u2013 Ghana's premier ride-hailing app! Use my referral code ${referCode} to get GH\u20B510 off your first ride. Download: https://hy3n.app`,
+          message: `Join HY3N – Ghana's premier ride-hailing app! Use my referral code ${referCode} to get ${GHC}10 off your first ride. Download: https://hy3n.app`,
         title: "Join HY3N",
       });
     } catch (e) {}
@@ -289,7 +292,7 @@ export default function AccountScreen() {
           <MenuItem icon="security" label="Safety Center" color={RED} onPress={() => router.push("/safety")} />
           <MenuItem icon="help-outline" label="Help Center" color="#4A90E2" onPress={() => setShowHelp(true)} />
           <MenuItem icon="support-agent" label="Contact Support" color={GREEN} onPress={() => router.push("/support")} />
-          <MenuItem icon="people" label="Refer a Friend" value="Earn GH\u20B510" color={GOLD} onPress={() => setShowRefer(true)} />
+          <MenuItem icon="people" label="Refer a Friend" value={`Earn ${GHC}10`} color={GOLD} onPress={() => setShowRefer(true)} />
         </View>
 
         {/* Settings */}
@@ -567,9 +570,9 @@ export default function AccountScreen() {
               <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: `${GOLD}1A`, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
                 <MaterialIcons name="people" size={40} color={GOLD} />
               </View>
-              <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 22, marginBottom: 8 }}>Earn GH\u20B510 Each!</Text>
+              <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 22, marginBottom: 8 }}>{`Earn ${GHC}10 Each!`}</Text>
               <Text style={{ color: MUTED, fontSize: 14, textAlign: "center", lineHeight: 22 }}>
-                Share your referral code with friends. You both get GH\u20B510 wallet credit when they complete their first ride.
+                {`Share your referral code with friends. You both get ${GHC}10 wallet credit when they complete their first ride.`}
               </Text>
             </View>
             <View style={{ backgroundColor: CARD, borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 0.5, borderColor: BORDER }}>
@@ -578,7 +581,7 @@ export default function AccountScreen() {
                 { step: "1", text: "Share your unique referral code" },
                 { step: "2", text: "Friend signs up using your code" },
                 { step: "3", text: "Friend completes their first ride" },
-                { step: "4", text: "You both get GH\u20B510 wallet credit!" },
+                { step: "4", text: `You both get ${GHC}10 wallet credit!` },
               ].map((item) => (
                 <View key={item.step} style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 10 }}>
                   <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: `${GOLD}1A`, alignItems: "center", justifyContent: "center" }}>
@@ -592,7 +595,12 @@ export default function AccountScreen() {
             <View style={{ backgroundColor: CARD, borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: `${GOLD}4D`, flexDirection: "row", alignItems: "center", gap: 12 }}>
               <Text style={{ color: GOLD, fontWeight: "bold", fontSize: 18, flex: 1, letterSpacing: 1 }}>{referCode}</Text>
               <TouchableOpacity
-                onPress={() => Alert.alert("Copied!", "Referral code copied to clipboard")}
+                onPress={() => {
+                  if (Platform.OS !== 'web') {
+                    Clipboard.setString(referCode);
+                  }
+                  Alert.alert("Copied!", `Referral code ${referCode} copied to clipboard`);
+                }}
                 style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: `${GOLD}1A`, borderRadius: 8, borderWidth: 1, borderColor: `${GOLD}4D` }}
               >
                 <Text style={{ color: GOLD, fontWeight: "600", fontSize: 12 }}>Copy</Text>

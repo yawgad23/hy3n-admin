@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput, Alert, ActivityIndicator, Linking } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useRouter } from "expo-router";
@@ -85,23 +85,47 @@ export default function SupportScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 30 }}>
         {/* Contact Options */}
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
-          {[
-            { label: "Live Chat", icon: "chat" as const, color: GREEN, sub: "Avg. 2 min" },
-            { label: "Call Us", icon: "call" as const, color: "#4A90E2", sub: "24/7 Support" },
-            { label: "Email", icon: "email" as const, color: GOLD, sub: "Within 24h" },
-          ].map((opt) => (
-            <TouchableOpacity
-              key={opt.label}
-              onPress={() => Alert.alert(opt.label, `${opt.label} support coming soon!`)}
-              style={{ flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 0.5, borderColor: BORDER, gap: 6 }}
-            >
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: opt.color + "1A", alignItems: "center", justifyContent: "center" }}>
-                <MaterialIcons name={opt.icon} size={20} color={opt.color} />
-              </View>
-              <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 12 }}>{opt.label}</Text>
-              <Text style={{ color: MUTED, fontSize: 10 }}>{opt.sub}</Text>
-            </TouchableOpacity>
-          ))}
+          <TouchableOpacity
+            onPress={() => {
+              const whatsappUrl = "https://wa.me/233200000000?text=Hi%20HY3N%20Support%2C%20I%20need%20help%20with%20my%20ride.";
+              Linking.canOpenURL(whatsappUrl).then(supported => {
+                if (supported) {
+                  Linking.openURL(whatsappUrl);
+                } else {
+                  Alert.alert("WhatsApp not found", "Please install WhatsApp or email us at support@hy3n.app");
+                }
+              });
+            }}
+            style={{ flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 0.5, borderColor: BORDER, gap: 6 }}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GREEN + "1A", alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="chat" size={20} color={GREEN} />
+            </View>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 12 }}>Live Chat</Text>
+            <Text style={{ color: MUTED, fontSize: 10 }}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL("tel:+233200000000")}
+            style={{ flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 0.5, borderColor: BORDER, gap: 6 }}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "#4A90E21A", alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="call" size={20} color="#4A90E2" />
+            </View>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 12 }}>Call Us</Text>
+            <Text style={{ color: MUTED, fontSize: 10 }}>24/7 Support</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => Linking.openURL("mailto:support@hy3n.app?subject=HY3N%20Rider%20Support&body=Hi%20HY3N%20Support%20Team%2C%0A%0AI%20need%20help%20with%3A%0A%0A")}
+            style={{ flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 0.5, borderColor: BORDER, gap: 6 }}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GOLD + "1A", alignItems: "center", justifyContent: "center" }}>
+              <MaterialIcons name="email" size={20} color={GOLD} />
+            </View>
+            <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 12 }}>Email</Text>
+            <Text style={{ color: MUTED, fontSize: 10 }}>Within 24h</Text>
+          </TouchableOpacity>
         </View>
 
         {/* My Tickets */}

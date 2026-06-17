@@ -122,6 +122,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const safeTop = insets.top > 0 ? insets.top : (Constants.statusBarHeight ?? 44);
   const [userLocation, setUserLocation] = useState<[number, number]>(DEFAULT_LOCATION);
+  const [pickupAddress, setPickupAddress] = useState<string>("Getting your location...");
 
   // Request GPS and center map on user's real position
   useEffect(() => {
@@ -131,10 +132,26 @@ export default function HomeScreen() {
         if (status === 'granted') {
           const loc = await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.Balanced });
           setUserLocation([loc.coords.latitude, loc.coords.longitude]);
+          // Reverse geocode to get readable address
+          try {
+            const geo = await ExpoLocation.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+            if (geo && geo.length > 0) {
+              const g = geo[0];
+              const parts = [g.name, g.street, g.district, g.city].filter(Boolean);
+              setPickupAddress(parts.slice(0, 2).join(', ') || 'Current Location');
+            } else {
+              setPickupAddress('Current Location');
+            }
+          } catch {
+            setPickupAddress('Current Location');
+          }
+        } else {
+          setPickupAddress('Current Location');
         }
       } catch (err) {
         // Fall back to default Accra location if GPS fails
         console.log('GPS unavailable, using default location');
+        setPickupAddress('Accra, Ghana');
       }
     })();
   }, []);
@@ -1024,6 +1041,17 @@ export default function HomeScreen() {
 
   const renderDefaultSheet = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+      {/* Pickup row */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8, paddingHorizontal: 4 }}>
+        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: GREEN, borderWidth: 2, borderColor: '#00FF88' }} />
+        <Text style={{ color: MUTED, fontSize: 12, flex: 1 }} numberOfLines={1}>{pickupAddress}</Text>
+        <TouchableOpacity onPress={() => Alert.alert("Pickup", "Drag the map pin to change your pickup location")}>
+          <MaterialIcons name="edit-location" size={18} color={GOLD} />
+        </TouchableOpacity>
+      </View>
+      {/* Divider line */}
+      <View style={{ width: 1, height: 10, backgroundColor: BORDER, marginLeft: 8, marginBottom: 4 }} />
+      {/* Destination search */}
       <TouchableOpacity
         onPress={() => setSearchOpen(true)}
         style={{ flexDirection: "row", alignItems: "center", gap: 14, backgroundColor: CARD, borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: BORDER }}
@@ -1109,7 +1137,7 @@ export default function HomeScreen() {
     ? (activeRide.status === "completed" ? SCREEN_HEIGHT * 0.75 : SCREEN_HEIGHT * 0.65)
     : destination
     ? SCREEN_HEIGHT * 0.72
-    : SCREEN_HEIGHT * 0.44;
+    : SCREEN_HEIGHT * 0.38;
 
   return (
     <View style={{ flex: 1, backgroundColor: BG }}>
