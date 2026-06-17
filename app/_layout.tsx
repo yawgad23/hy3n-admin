@@ -96,9 +96,9 @@ function SplashScreen({ onComplete }: { onComplete: () => void }) {
       <Animated.Text
         style={{
           color: "#D4AF37",
-          fontSize: 18,
-          fontWeight: "300",
-          letterSpacing: 6,
+          fontSize: 20,
+          fontWeight: "700",
+          letterSpacing: 4,
           textTransform: "uppercase",
           marginTop: 16,
           opacity: logoOpacity,

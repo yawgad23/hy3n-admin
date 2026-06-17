@@ -1002,7 +1002,7 @@ export default function HomeScreen() {
             <Text style={{ color: MUTED, fontSize: 11 }}>
               {Object.values(rideOptions).some(Boolean)
                 ? Object.entries(rideOptions).filter(([,v]) => v).map(([k]) => k.replace(/_/g,' ')).join(', ')
-                : 'AC, pet friendly, luggage...'}
+                : 'Extra luggage, wheelchair...'}
             </Text>
           </View>
         </View>
@@ -1206,7 +1206,7 @@ export default function HomeScreen() {
         backgroundColor: SURFACE,
         borderTopLeftRadius: 24,
         borderTopRightRadius: 24,
-        paddingBottom: insets.bottom + 80,
+        paddingBottom: insets.bottom + 16,
         maxHeight: sheetHeight,
         borderTopWidth: 1,
         borderTopColor: BORDER,
@@ -1560,8 +1560,6 @@ export default function HomeScreen() {
             <Text style={{ color: TEXT, fontWeight: "800", fontSize: 18, marginBottom: 4 }}>Ride Options</Text>
             <Text style={{ color: MUTED, fontSize: 13, marginBottom: 16 }}>Customise your ride experience:</Text>
             {([
-              { key: "ac", icon: "ac-unit", label: "Air Conditioning", desc: "Request a cool ride" },
-              { key: "pet_friendly", icon: "pets", label: "Pet Friendly", desc: "Travelling with a pet" },
               { key: "extra_luggage", icon: "luggage", label: "Extra Luggage", desc: "Large bags or equipment" },
               { key: "wheelchair_accessible", icon: "accessible", label: "Wheelchair Accessible", desc: "Accessible vehicle needed" },
             ] as const).map(({ key, icon, label, desc }) => (
