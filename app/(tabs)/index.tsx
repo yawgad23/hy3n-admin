@@ -441,6 +441,7 @@ export default function HomeScreen() {
             riderId: user.uid,
             riderName: riderProfile?.full_name || user.displayName || 'Rider',
             riderPhone: riderProfile?.phone || user.phoneNumber || '',
+            riderEmail: riderProfile?.email || user.email || '',
             category: selectedCategory.id,
             pickup: { lat: userLocation[0], lng: userLocation[1], name: 'Current Location', address: 'Current Location' },
             destination: { lat: destination.lat, lng: destination.lng, name: destination.name, address: destination.address || destination.name },

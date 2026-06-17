@@ -144,9 +144,10 @@
 ## New Features (Jun 17)
 
 ### Rider Email Receipt on Trip Completion
-- [ ] Server-side email trigger: when driver marks trip complete, send receipt email to rider (fare, route, date, Trip ID, driver name/vehicle)
-- [ ] tRPC endpoint: `sendTripReceipt` called from driver app on trip complete
-- [ ] Email template: HY3N branded, Ghana Cedis fare, pickup/destination, payment method, Trip ID
+- [x] Server-side email trigger: when driver marks trip complete, send receipt email to rider (fare, route, date, Trip ID, driver name/vehicle)
+- [x] tRPC endpoint: `trips.sendReceipt` called from driver app on trip complete
+- [x] Email template: HY3N branded, Ghana Cedis fare, pickup/destination, payment method, Trip ID
+- [x] rider_email saved in Firestore ride document on booking so driver app can send to correct address
 
 ### Driver Set Destination
 - [ ] "Set Destination" button on driver home screen (when online, no active trip)
@@ -156,9 +157,9 @@
 - [ ] Destination shown as active badge on home screen
 
 ### History Tab Share Receipt
-- [ ] Share Receipt button inside expanded trip card (completed trips only)
-- [ ] Generates plain-text receipt: rider, date, route, fare, Trip ID, payment method
-- [ ] Opens native share sheet
+- [x] Share Receipt button inside expanded trip card (completed trips only)
+- [x] Generates plain-text receipt: rider, date, route, fare, Trip ID, payment method
+- [x] Opens native share sheet
 
 ## Web App Full Parity Pass (Jun 17 — second pass)
 

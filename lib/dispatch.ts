@@ -74,6 +74,7 @@ export interface RideRequest {
   rider_id: string;
   rider_name: string;
   rider_phone: string;
+  rider_email?: string;
   driver_id?: string;
   driver?: DriverProfile;
   status: RideStatus;
@@ -280,6 +281,7 @@ export const dispatchService = {
     riderId: string;
     riderName: string;
     riderPhone: string;
+    riderEmail?: string;
     category: string;
     pickup: RideLocation;
     destination: RideLocation;
@@ -299,6 +301,7 @@ export const dispatchService = {
       rider_id: params.riderId,
       rider_name: params.riderName,
       rider_phone: params.riderPhone,
+      rider_email: params.riderEmail || '',
       status: 'searching',
       category: params.category,
       pickup: params.pickup,
