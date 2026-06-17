@@ -163,11 +163,14 @@ export default function WalletScreen() {
 
         {/* Top Up Button */}
         <TouchableOpacity
-          onPress={() => { setTopUpAmount(""); setTopUpSuccess(false); setShowTopUp(true); }}
-          style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: GOLD, borderRadius: 16, paddingVertical: 15, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}
+          onPress={() => setShowTopUp(true)}
+          style={{ marginHorizontal: 16, marginBottom: 20, backgroundColor: CARD, borderRadius: 16, paddingVertical: 15, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1, borderColor: BORDER }}
         >
-          <MaterialIcons name="add" size={22} color="#000" />
-          <Text style={{ color: "#000", fontWeight: "bold", fontSize: 16 }}>Top Up Wallet</Text>
+          <MaterialIcons name="schedule" size={22} color={GOLD} />
+          <Text style={{ color: GOLD, fontWeight: "bold", fontSize: 16 }}>Top Up Wallet</Text>
+          <View style={{ backgroundColor: `${GOLD}22`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 4 }}>
+            <Text style={{ color: GOLD, fontSize: 11, fontWeight: "700" }}>SOON</Text>
+          </View>
         </TouchableOpacity>
 
         {/* Transaction History */}
@@ -197,7 +200,7 @@ export default function WalletScreen() {
         </View>
       </ScrollView>
 
-      {/* Top Up Modal */}
+      {/* Top Up Coming Soon Modal */}
       <Modal visible={showTopUp} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: BG }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderBottomWidth: 0.5, borderBottomColor: BORDER }}>
@@ -206,94 +209,32 @@ export default function WalletScreen() {
             </TouchableOpacity>
             <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 18, flex: 1 }}>Top Up Wallet</Text>
           </View>
-          <ScrollView contentContainerStyle={{ padding: 16 }}>
-            {topUpSuccess ? (
-              <View style={{ alignItems: "center", paddingVertical: 40 }}>
-                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: `${GREEN}1A`, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-                  <MaterialIcons name="check-circle" size={48} color={GREEN} />
-                </View>
-                <Text style={{ color: TEXT, fontWeight: "bold", fontSize: 20, marginBottom: 8 }}>Top-Up Successful!</Text>
-                <Text style={{ color: MUTED, fontSize: 14, textAlign: "center", marginBottom: 6 }}>
-                  GH₵{parseFloat(topUpAmount).toFixed(2)} has been added to your wallet
-                </Text>
-                <Text style={{ color: GOLD, fontWeight: "bold", fontSize: 22, marginBottom: 24 }}>
-                  New Balance: GH₵{(balance + parseFloat(topUpAmount)).toFixed(2)}
-                </Text>
-                <TouchableOpacity onPress={() => setShowTopUp(false)} style={{ backgroundColor: GREEN, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 48 }}>
-                  <Text style={{ color: "#fff", fontWeight: "bold", fontSize: 15 }}>Done</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <>
-                <View style={{ backgroundColor: `${GREEN}1A`, borderRadius: 14, padding: 14, marginBottom: 20, borderWidth: 1, borderColor: `${GREEN}4D`, flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <MaterialIcons name="account-balance-wallet" size={22} color={GREEN} />
-                  <View>
-                    <Text style={{ color: MUTED, fontSize: 11 }}>Current Balance</Text>
-                    <Text style={{ color: GREEN, fontWeight: "bold", fontSize: 18 }}>GH₵{balance.toFixed(2)}</Text>
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
+            <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: `${GOLD}1A`, alignItems: "center", justifyContent: "center", marginBottom: 24, borderWidth: 1.5, borderColor: `${GOLD}44` }}>
+              <MaterialIcons name="account-balance-wallet" size={44} color={GOLD} />
+            </View>
+            <Text style={{ color: TEXT, fontWeight: "800", fontSize: 24, marginBottom: 10, textAlign: "center" }}>Coming Soon</Text>
+            <Text style={{ color: MUTED, fontSize: 15, textAlign: "center", lineHeight: 22, marginBottom: 28 }}>
+              Mobile Money (MoMo) wallet top-up is coming soon. You will be able to fund your HY3N wallet with MTN MoMo, Telecel Cash, and AirtelTigo Money.
+            </Text>
+            <View style={{ backgroundColor: CARD, borderRadius: 14, padding: 16, width: "100%", borderWidth: 1, borderColor: BORDER, gap: 12 }}>
+              {["MTN Mobile Money", "Telecel Cash", "AirtelTigo Money"].map((method) => (
+                <View key={method} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                  <MaterialIcons name="radio-button-unchecked" size={18} color={MUTED} />
+                  <Text style={{ color: MUTED, fontSize: 14 }}>{method}</Text>
+                  <View style={{ marginLeft: "auto", backgroundColor: `${GOLD}22`, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ color: GOLD, fontSize: 10, fontWeight: "700" }}>SOON</Text>
                   </View>
                 </View>
-
-                <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600", marginBottom: 8 }}>Enter Amount</Text>
-                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: CARD, borderRadius: 14, borderWidth: 1, borderColor: BORDER, paddingHorizontal: 16, marginBottom: 12 }}>
-                  <Text style={{ color: GOLD, fontWeight: "bold", fontSize: 20, marginRight: 8 }}>GH₵</Text>
-                  <TextInput
-                    value={topUpAmount}
-                    onChangeText={setTopUpAmount}
-                    placeholder="0.00"
-                    placeholderTextColor="#4A4A4A"
-                    keyboardType="decimal-pad"
-                    style={{ flex: 1, color: TEXT, fontSize: 24, fontWeight: "bold", paddingVertical: 16 }}
-                  />
-                </View>
-
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-                  {QUICK_AMOUNTS.map((amt) => (
-                    <TouchableOpacity
-                      key={amt}
-                      onPress={() => setTopUpAmount(amt.toString())}
-                      style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: topUpAmount === amt.toString() ? `${GOLD}1A` : CARD, borderWidth: 1, borderColor: topUpAmount === amt.toString() ? GOLD : BORDER }}
-                    >
-                      <Text style={{ color: topUpAmount === amt.toString() ? GOLD : MUTED, fontWeight: "600", fontSize: 13 }}>GH₵{amt}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600", marginBottom: 10 }}>Payment Method</Text>
-                <View style={{ gap: 8, marginBottom: 24 }}>
-                  {TOP_UP_METHODS.map((method) => (
-                    <TouchableOpacity
-                      key={method.id}
-                      onPress={() => setSelectedMethod(method.id)}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, backgroundColor: selectedMethod === method.id ? `${method.color}1A` : CARD, borderWidth: 1, borderColor: selectedMethod === method.id ? method.color : BORDER }}
-                    >
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: `${method.color}1A`, alignItems: "center", justifyContent: "center" }}>
-                        <MaterialIcons name={method.icon} size={20} color={method.color} />
-                      </View>
-                      <Text style={{ color: selectedMethod === method.id ? TEXT : MUTED, fontWeight: "600", fontSize: 14, flex: 1 }}>{method.label}</Text>
-                      {selectedMethod === method.id && <MaterialIcons name="check-circle" size={20} color={method.color} />}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  onPress={handleTopUp}
-                  disabled={topUpLoading || !topUpAmount}
-                  style={{ backgroundColor: GOLD, borderRadius: 14, paddingVertical: 15, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, opacity: topUpAmount ? 1 : 0.5 }}
-                >
-                  {topUpLoading ? (
-                    <ActivityIndicator color="#000" size="small" />
-                  ) : (
-                    <>
-                      <MaterialIcons name="add" size={20} color="#000" />
-                      <Text style={{ color: "#000", fontWeight: "bold", fontSize: 16 }}>
-                        {topUpAmount ? `Top Up GH₵${parseFloat(topUpAmount || "0").toFixed(2)}` : "Enter Amount"}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </>
-            )}
-          </ScrollView>
+              ))}
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowTopUp(false)}
+              style={{ marginTop: 28, backgroundColor: CARD, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 48, borderWidth: 1, borderColor: BORDER }}
+            >
+              <Text style={{ color: TEXT, fontWeight: "700", fontSize: 15 }}>Got it</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
