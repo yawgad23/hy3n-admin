@@ -268,3 +268,13 @@
 - [ ] Admin: send push notification to driver on approval (title: "You're Approved!", body: "Welcome to HY3N. Start driving now.")
 - [ ] Admin: send push notification to driver on rejection (title: "Application Update", body: rejection reason)
 - [ ] Admin ApplicationDetailModal: trigger push notification via Firestore push_notifications collection on status change
+
+## Driver Document Re-Upload (Jun 17)
+
+- [x] New screen `/driver/reupload-docs` — shows all 8 document slots with current upload status
+- [x] Each slot shows the existing photo (thumbnail) with a "Replace" button
+- [x] Driver can replace individual documents without touching other fields
+- [x] On submit: updates only the changed document URLs in Firestore driver_profiles
+- [x] Also resets approval_status to 'pending' so admin sees the resubmission
+- [x] "Fix & Resubmit" button on ApprovalGate navigates to this screen instead of full register
+- [x] "Or restart full application" secondary link still available for full re-registration

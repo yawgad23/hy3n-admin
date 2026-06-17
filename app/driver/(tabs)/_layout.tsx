@@ -296,10 +296,16 @@ function ApprovalGate({ driver }: { driver: any }) {
 
         <TouchableOpacity
           style={[styles.submitBtn, { backgroundColor: GOLD }]}
+          onPress={() => router.push('/driver/reupload-docs' as any)}
+        >
+          <MaterialIcons name="upload" size={18} color="#000" style={{ marginRight: 6 }} />
+          <Text style={styles.submitBtnText}>Fix & Resubmit Documents</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ marginTop: 6 }}
           onPress={() => router.push('/driver/register' as any)}
         >
-          <MaterialIcons name="refresh" size={18} color="#000" style={{ marginRight: 6 }} />
-          <Text style={styles.submitBtnText}>Fix & Resubmit Application</Text>
+          <Text style={{ color: MUTED, fontSize: 12, textDecorationLine: 'underline', textAlign: 'center' }}>Or restart full application</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{ marginTop: 4 }}

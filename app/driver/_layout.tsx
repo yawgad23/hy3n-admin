@@ -10,6 +10,7 @@ export default function DriverLayout() {
         <Stack.Screen name="login" />
         <Stack.Screen name="register" />
         <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reupload-docs" />
         <Stack.Screen name="(tabs)" />
       </Stack>
     </DriverAuthProvider>
