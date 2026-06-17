@@ -92,7 +92,7 @@ export default function SupportScreen() {
                 if (supported) {
                   Linking.openURL(whatsappUrl);
                 } else {
-                  Alert.alert("WhatsApp not found", "Please install WhatsApp or email us at support@hy3n.app");
+                  Alert.alert("WhatsApp not found", "Please install WhatsApp or email us at hello@ridehy3n.com");
                 }
               });
             }}
@@ -117,7 +117,7 @@ export default function SupportScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => Linking.openURL("mailto:support@hy3n.app?subject=HY3N%20Rider%20Support&body=Hi%20HY3N%20Support%20Team%2C%0A%0AI%20need%20help%20with%3A%0A%0A")}
+            onPress={() => Linking.openURL("mailto:hello@ridehy3n.com?subject=HY3N%20Rider%20Support&body=Hi%20HY3N%20Support%20Team%2C%0A%0AI%20need%20help%20with%3A%0A%0A")}
             style={{ flex: 1, backgroundColor: CARD, borderRadius: 14, padding: 14, alignItems: "center", borderWidth: 0.5, borderColor: BORDER, gap: 6 }}
           >
             <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: GOLD + "1A", alignItems: "center", justifyContent: "center" }}>
