@@ -58,6 +58,48 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
 
+  // Google Places Autocomplete proxy — keeps API key server-side
+  app.get("/api/places/autocomplete", async (req, res) => {
+    const { input } = req.query as { input?: string };
+    if (!input || input.trim().length < 2) {
+      res.json({ predictions: [] });
+      return;
+    }
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      res.status(500).json({ error: "Maps API key not configured" });
+      return;
+    }
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}&components=country:gh&language=en&types=geocode|establishment`;
+      const response = await fetch(url);
+      const data = await response.json() as { status: string; predictions: any[] };
+      if (data.status === "OK" || data.status === "ZERO_RESULTS") {
+        res.json({ predictions: data.predictions || [] });
+      } else {
+        res.json({ predictions: [] });
+      }
+    } catch (err) {
+      res.json({ predictions: [] });
+    }
+  });
+
+  // Google Place Details proxy — get lat/lng for a place_id
+  app.get("/api/places/details", async (req, res) => {
+    const { place_id } = req.query as { place_id?: string };
+    if (!place_id) { res.json({ result: null }); return; }
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) { res.status(500).json({ error: "Maps API key not configured" }); return; }
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(place_id)}&key=${apiKey}&fields=name,formatted_address,geometry`;
+      const response = await fetch(url);
+      const data = await response.json() as { status: string; result?: any };
+      res.json({ result: data.status === "OK" ? data.result : null });
+    } catch {
+      res.json({ result: null });
+    }
+  });
+
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
   });

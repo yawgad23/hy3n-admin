@@ -38,6 +38,7 @@ import {
   notifyTripStarted,
   notifyTripCompleted,
 } from "@/lib/notifications";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -240,12 +241,48 @@ export default function HomeScreen() {
   const finalFare = baseFare - discount;
   const perPersonFare = splitData ? finalFare / splitData.totalPeople : finalFare;
 
+  const [placeSuggestions, setPlaceSuggestions] = useState<Location[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch live Google Places suggestions when user types
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setPlaceSuggestions([]);
+      return;
+    }
+    setSuggestionsLoading(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const base = getApiBaseUrl();
+        const url = `${base}/api/places/autocomplete?input=${encodeURIComponent(searchQuery)}`;
+        const res = await fetch(url);
+        const data = await res.json() as { predictions: any[] };
+        const mapped: Location[] = (data.predictions || []).map((p: any) => ({
+          name: p.structured_formatting?.main_text || p.description,
+          address: p.structured_formatting?.secondary_text || p.description,
+          lat: 0,
+          lng: 0,
+          placeId: p.place_id,
+        }));
+        setPlaceSuggestions(mapped);
+      } catch {
+        setPlaceSuggestions([]);
+      } finally {
+        setSuggestionsLoading(false);
+      }
+    }, 350);
+  }, [searchQuery]);
+
   const filteredDestinations = searchQuery
-    ? POPULAR_DESTINATIONS.filter(
-        (p) =>
-          p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          p.address.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? placeSuggestions.length > 0
+      ? placeSuggestions
+      : POPULAR_DESTINATIONS.filter(
+          (p) =>
+            p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            p.address.toLowerCase().includes(searchQuery.toLowerCase())
+        )
     : POPULAR_DESTINATIONS;
 
   const handleSelectDestination = async (loc: Location) => {
@@ -990,6 +1027,13 @@ export default function HomeScreen() {
             )}
           </View>
 
+          {suggestionsLoading && searchQuery.length >= 2 && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 16, paddingVertical: 10 }}>
+              <ActivityIndicator size="small" color={GOLD} />
+              <Text style={{ color: MUTED, fontSize: 13 }}>Searching...</Text>
+            </View>
+          )}
+
           <FlatList
             data={searchQuery ? filteredDestinations : [...(searchHistory.length > 0 ? searchHistory : []), ...POPULAR_DESTINATIONS.slice(0, 8)]}
             keyExtractor={(item, i) => `${item.name}-${i}`}
@@ -998,6 +1042,11 @@ export default function HomeScreen() {
                 {searchHistory.length > 0 && !searchQuery && (
                   <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
                     <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600" }}>Recent</Text>
+                  </View>
+                )}
+                {searchQuery && placeSuggestions.length > 0 && (
+                  <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
+                    <Text style={{ color: MUTED, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.8, fontWeight: "600" }}>Suggestions</Text>
                   </View>
                 )}
                 {!searchQuery && (
