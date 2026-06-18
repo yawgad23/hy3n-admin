@@ -1,0 +1,48 @@
+{
+  "name": "Commission",
+  "type": "object",
+  "properties": {
+    "driver_id": {
+      "type": "string",
+      "title": "Driver ID"
+    },
+    "driver_name": {
+      "type": "string",
+      "title": "Driver Name"
+    },
+    "driver_phone": {
+      "type": "string",
+      "title": "Driver Phone"
+    },
+    "amount": {
+      "type": "number",
+      "title": "Commission Amount (GHS)"
+    },
+    "period": {
+      "type": "string",
+      "title": "Period (e.g. Week of May 20)"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "Pending",
+        "Paid"
+      ],
+      "default": "Pending"
+    },
+    "paid_date": {
+      "type": "string",
+      "title": "Date Paid"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Notes"
+    }
+  },
+  "required": [
+    "driver_name",
+    "amount",
+    "status"
+  ]
+}

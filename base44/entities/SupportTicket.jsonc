@@ -1,0 +1,83 @@
+{
+  "name": "SupportTicket",
+  "type": "object",
+  "properties": {
+    "subject": {
+      "type": "string",
+      "title": "Subject"
+    },
+    "message": {
+      "type": "string",
+      "title": "Message"
+    },
+    "from_name": {
+      "type": "string",
+      "title": "From Name"
+    },
+    "from_phone": {
+      "type": "string",
+      "title": "From Phone"
+    },
+    "from_email": {
+      "type": "string",
+      "title": "From Email"
+    },
+    "category": {
+      "type": "string",
+      "title": "Category",
+      "enum": [
+        "Payment Issue",
+        "Driver Complaint",
+        "Rider Complaint",
+        "App Bug",
+        "Account Issue",
+        "Safety",
+        "Other"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "title": "Priority",
+      "enum": [
+        "Low",
+        "Medium",
+        "High",
+        "Urgent"
+      ],
+      "default": "Medium"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "Open",
+        "In Progress",
+        "Resolved",
+        "Closed"
+      ],
+      "default": "Open"
+    },
+    "admin_reply": {
+      "type": "string",
+      "title": "Admin Reply"
+    },
+    "resolved_at": {
+      "type": "string",
+      "title": "Resolved At"
+    },
+    "assigned_to": {
+      "type": "string",
+      "title": "Assigned To"
+    },
+    "related_ride_id": {
+      "type": "string",
+      "title": "Related Ride ID"
+    }
+  },
+  "required": [
+    "subject",
+    "message",
+    "from_name",
+    "status"
+  ]
+}

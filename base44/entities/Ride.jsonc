@@ -1,0 +1,262 @@
+{
+  "name": "Ride",
+  "type": "object",
+  "properties": {
+    "rider_id": {
+      "type": "string",
+      "description": "User ID of the rider"
+    },
+    "driver_id": {
+      "type": "string",
+      "description": "User ID of the driver"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "requested",
+        "scheduled",
+        "matched",
+        "driver_arriving",
+        "in_progress",
+        "completed",
+        "cancelled"
+      ],
+      "default": "requested"
+    },
+    "ride_type": {
+      "type": "string",
+      "enum": [
+        "on_demand",
+        "scheduled"
+      ],
+      "default": "on_demand"
+    },
+    "scheduled_for": {
+      "type": "string",
+      "description": "ISO datetime string for scheduled pickup"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "standard",
+        "comfort",
+        "kantanka",
+        "executive",
+        "okada",
+        "express_delivery"
+      ]
+    },
+    "pickup_address": {
+      "type": "string"
+    },
+    "pickup_lat": {
+      "type": "number"
+    },
+    "pickup_lng": {
+      "type": "number"
+    },
+    "destination_address": {
+      "type": "string"
+    },
+    "destination_lat": {
+      "type": "number"
+    },
+    "destination_lng": {
+      "type": "number"
+    },
+    "fare_estimate": {
+      "type": "number"
+    },
+    "final_fare": {
+      "type": "number"
+    },
+    "tip_amount": {
+      "type": "number",
+      "default": 0,
+      "description": "Tip amount added by rider after trip completion"
+    },
+    "payment_method": {
+      "type": "string",
+      "enum": [
+        "mobile_money",
+        "cash",
+        "card",
+        "wallet"
+      ],
+      "default": "mobile_money"
+    },
+    "payment_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "paid",
+        "failed",
+        "refunded"
+      ],
+      "default": "pending",
+      "description": "Payment status for the ride"
+    },
+    "payment_reference": {
+      "type": "string",
+      "description": "Payment transaction reference ID"
+    },
+    "distance_km": {
+      "type": "number"
+    },
+    "duration_minutes": {
+      "type": "number"
+    },
+    "rider_rating": {
+      "type": "number",
+      "description": "Rating given by the rider for the driver (1-5)"
+    },
+    "driver_rating": {
+      "type": "number",
+      "description": "Rating given by the driver for the rider (1-5)"
+    },
+    "rider_feedback": {
+      "type": "string",
+      "description": "Optional text feedback from rider"
+    },
+    "driver_feedback": {
+      "type": "string",
+      "description": "Optional text feedback from driver"
+    },
+    "rating": {
+      "type": "number",
+      "description": "Legacy rating field"
+    },
+    "rider_name": {
+      "type": "string"
+    },
+    "driver_name": {
+      "type": "string"
+    },
+    "surge_multiplier": {
+      "type": "number",
+      "default": 1.0,
+      "description": "Surge pricing multiplier applied to base fare"
+    },
+    "stops": {
+      "type": "array",
+      "description": "Array of intermediate stops for multi-stop rides",
+      "items": {
+        "type": "object",
+        "properties": {
+          "address": { "type": "string" },
+          "lat": { "type": "number" },
+          "lng": { "type": "number" },
+          "order": { "type": "integer" },
+          "status": { "type": "string", "enum": ["pending", "completed"] }
+        }
+      },
+      "default": []
+    },
+    "driver_arrived_at": {
+      "type": "string",
+      "description": "ISO datetime when driver arrived at pickup and pressed 'I have Arrived'"
+    },
+    "trip_started_at": {
+      "type": "string",
+      "description": "ISO datetime when the trip actually started (rider got in)"
+    },
+    "waiting_time_minutes": {
+      "type": "number",
+      "default": 0,
+      "description": "Total waiting time in minutes (after free grace period)"
+    },
+    "waiting_fee": {
+      "type": "number",
+      "default": 0,
+      "description": "Waiting fee charged in GHS (waiting_time_minutes * per-minute rate)"
+    },
+    "free_waiting_minutes": {
+      "type": "number",
+      "default": 3,
+      "description": "Free waiting grace period in minutes before charges begin"
+    },
+    "promo_code": {
+      "type": "string",
+      "description": "Applied promo/discount code"
+    },
+    "promo_discount": {
+      "type": "number",
+      "default": 0,
+      "description": "Discount amount applied from promo code in GHS"
+    },
+    "cancel_reason": {
+      "type": "string",
+      "description": "Reason for ride cancellation selected by rider"
+    },
+    "cancellation_fee": {
+      "type": "number",
+      "default": 0,
+      "description": "Fee charged to rider for cancelling after driver was assigned"
+    },
+    "safety_check_enabled": {
+      "type": "boolean",
+      "default": true,
+      "description": "Enable automatic safety check-ins during the trip"
+    },
+    "route_deviations": {
+      "type": "array",
+      "description": "Array of detected route deviations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string" },
+          "deviation_type": { "type": "string" },
+          "lat": { "type": "number" },
+          "lng": { "type": "number" }
+        }
+      },
+      "default": []
+    }
+  },
+  "required": [
+    "rider_id",
+    "category",
+    "pickup_address",
+    "destination_address"
+  ],
+  "rls": {
+    "create": {
+      "data.rider_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.rider_id": "{{user.id}}"
+        },
+        {
+          "data.driver_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.rider_id": "{{user.id}}"
+        },
+        {
+          "data.driver_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

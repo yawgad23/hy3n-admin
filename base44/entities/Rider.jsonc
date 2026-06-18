@@ -1,0 +1,57 @@
+{
+  "name": "Rider",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "title": "Full Name"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "Active",
+        "Inactive",
+        "Suspended"
+      ]
+    },
+    "total_rides": {
+      "type": "number",
+      "title": "Total Rides"
+    },
+    "total_spent": {
+      "type": "number",
+      "title": "Total Spent (GHS)"
+    },
+    "city": {
+      "type": "string",
+      "title": "City"
+    },
+    "rating": {
+      "type": "number",
+      "title": "Rating"
+    },
+    "preferred_payment": {
+      "type": "string",
+      "title": "Preferred Payment",
+      "enum": [
+        "Cash",
+        "Mobile Money",
+        "Card"
+      ]
+    }
+  },
+  "required": [
+    "full_name",
+    "phone",
+    "status"
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "name": "AdminAccess",
+  "description": "Manages admin dashboard access - whitelist of authorized admin users with revocable access",
+  "properties": {
+    "email": {
+      "type": "string",
+      "description": "Admin user's email address",
+      "required": true
+    },
+    "name": {
+      "type": "string",
+      "description": "Admin user's display name"
+    },
+    "role": {
+      "type": "string",
+      "description": "Admin role level",
+      "enum": ["super_admin", "admin", "viewer"],
+      "default": "admin"
+    },
+    "is_active": {
+      "type": "boolean",
+      "description": "Whether this admin account is currently active",
+      "default": true
+    },
+    "last_login": {
+      "type": "string",
+      "description": "Last login timestamp"
+    },
+    "created_by": {
+      "type": "string",
+      "description": "Email of the super admin who granted access"
+    },
+    "revoked_at": {
+      "type": "string",
+      "description": "Timestamp when access was revoked"
+    },
+    "revoked_by": {
+      "type": "string",
+      "description": "Email of admin who revoked access"
+    }
+  },
+  "rls": {
+    "create": {
+      "authenticated": true,
+      "roles": ["admin"],
+      "filter": "auth.role === 'admin'"
+    },
+    "read": {
+      "authenticated": true,
+      "roles": ["admin"],
+      "filter": "auth.role === 'admin'"
+    },
+    "update": {
+      "authenticated": true,
+      "roles": ["admin"],
+      "filter": "auth.role === 'admin'"
+    },
+    "delete": {
+      "authenticated": true,
+      "roles": ["admin"],
+      "filter": "auth.role === 'admin'"
+    }
+  }
+}

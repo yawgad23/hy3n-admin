@@ -1,0 +1,159 @@
+{
+  "name": "DriverProfile",
+  "type": "object",
+  "properties": {
+    "user_id": {
+      "type": "string"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "vehicle_make": {
+      "type": "string"
+    },
+    "vehicle_model": {
+      "type": "string"
+    },
+    "vehicle_year": {
+      "type": "string"
+    },
+    "vehicle_color": {
+      "type": "string"
+    },
+    "license_plate": {
+      "type": "string"
+    },
+    "ghana_card_url": {
+      "type": "string"
+    },
+    "drivers_license_url": {
+      "type": "string"
+    },
+    "vehicle_registration_url": {
+      "type": "string"
+    },
+    "insurance_url": {
+      "type": "string"
+    },
+    "roadworthy_url": {
+      "type": "string"
+    },
+    "profile_photo_url": {
+      "type": "string"
+    },
+    "approval_status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected"
+      ],
+      "default": "pending"
+    },
+    "is_online": {
+      "type": "boolean",
+      "default": false
+    },
+    "current_lat": {
+      "type": "number"
+    },
+    "current_lng": {
+      "type": "number"
+    },
+    "total_earnings": {
+      "type": "number",
+      "default": 0
+    },
+    "total_rides": {
+      "type": "number",
+      "default": 0
+    },
+    "rating": {
+      "type": "number",
+      "default": 5
+    },
+    "ride_categories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "standard",
+          "comfort",
+          "kantanka",
+          "executive",
+          "okada",
+          "express_delivery"
+        ]
+      },
+      "default": [
+        "standard"
+      ],
+      "description": "Ride categories this driver is certified to handle"
+    },
+    "momo_number": {
+      "type": "string"
+    },
+    "momo_provider": {
+      "type": "string"
+    },
+    "momo_name": {
+      "type": "string",
+      "description": "The registered name on the driver's MoMo account, displayed to riders during payment"
+    }
+  },
+  "required": [
+    "user_id",
+    "full_name",
+    "phone"
+  ],
+  "rls": {
+    "create": {
+      "data.user_id": "{{user.id}}"
+    },
+    "read": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        },
+        {
+          "data.approval_status": "approved"
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.user_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

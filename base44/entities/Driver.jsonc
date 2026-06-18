@@ -1,0 +1,88 @@
+{
+  "name": "Driver",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "title": "Full Name"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "vehicle_type": {
+      "type": "string",
+      "title": "Vehicle Type",
+      "enum": [
+        "Sedan",
+        "SUV",
+        "Tricycle",
+        "Motorcycle",
+        "Minivan"
+      ]
+    },
+    "vehicle_plate": {
+      "type": "string",
+      "title": "Vehicle Plate"
+    },
+    "vehicle_model": {
+      "type": "string",
+      "title": "Vehicle Model"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "Active",
+        "Inactive",
+        "Suspended",
+        "Pending"
+      ]
+    },
+    "rating": {
+      "type": "number",
+      "title": "Rating"
+    },
+    "total_rides": {
+      "type": "number",
+      "title": "Total Rides"
+    },
+    "total_earnings": {
+      "type": "number",
+      "title": "Total Earnings (GHS)"
+    },
+    "city": {
+      "type": "string",
+      "title": "City"
+    },
+    "license_number": {
+      "type": "string",
+      "title": "License Number"
+    },
+    "is_online": {
+      "type": "boolean",
+      "title": "Currently Online"
+    },
+    "current_latitude": {
+      "type": "number",
+      "title": "Current Latitude"
+    },
+    "current_longitude": {
+      "type": "number",
+      "title": "Current Longitude"
+    },
+    "last_location_update": {
+      "type": "string",
+      "title": "Last Location Update"
+    }
+  },
+  "required": [
+    "full_name",
+    "phone",
+    "status"
+  ]
+}

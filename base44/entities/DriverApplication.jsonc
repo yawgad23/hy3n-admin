@@ -1,0 +1,126 @@
+{
+  "name": "DriverApplication",
+  "type": "object",
+  "properties": {
+    "full_name": {
+      "type": "string",
+      "title": "Full Name"
+    },
+    "email": {
+      "type": "string",
+      "title": "Email"
+    },
+    "phone": {
+      "type": "string",
+      "title": "Phone"
+    },
+    "city": {
+      "type": "string",
+      "title": "City"
+    },
+    "vehicle_type": {
+      "type": "string",
+      "title": "Vehicle Type",
+      "enum": [
+        "Sedan",
+        "SUV",
+        "Tricycle",
+        "Motorcycle",
+        "Minivan"
+      ]
+    },
+    "vehicle_model": {
+      "type": "string",
+      "title": "Vehicle Model"
+    },
+    "vehicle_plate": {
+      "type": "string",
+      "title": "Vehicle Plate"
+    },
+    "vehicle_year": {
+      "type": "string",
+      "title": "Vehicle Year"
+    },
+    "license_number": {
+      "type": "string",
+      "title": "License Number"
+    },
+    "license_photo_url": {
+      "type": "string",
+      "title": "License Photo URL"
+    },
+    "vehicle_photo_url": {
+      "type": "string",
+      "title": "Vehicle Photo URL"
+    },
+    "vehicle_reg_url": {
+      "type": "string",
+      "title": "Vehicle Registration URL"
+    },
+    "profile_photo_url": {
+      "type": "string",
+      "title": "Profile Photo URL"
+    },
+    "id_card_url": {
+      "type": "string",
+      "title": "ID Card / Ghana Card URL"
+    },
+    "bank_name": {
+      "type": "string",
+      "title": "Bank Name"
+    },
+    "bank_account_number": {
+      "type": "string",
+      "title": "Bank Account Number"
+    },
+    "bank_account_name": {
+      "type": "string",
+      "title": "Account Holder Name"
+    },
+    "mobile_money_number": {
+      "type": "string",
+      "title": "Mobile Money Number"
+    },
+    "mobile_money_provider": {
+      "type": "string",
+      "title": "Mobile Money Provider",
+      "enum": [
+        "MTN",
+        "Telecel",
+        "AirtelTigo"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "Pending",
+        "Under Review",
+        "Approved",
+        "Rejected"
+      ],
+      "default": "Pending"
+    },
+    "rejection_reason": {
+      "type": "string",
+      "title": "Rejection Reason"
+    },
+    "reviewed_by": {
+      "type": "string",
+      "title": "Reviewed By"
+    },
+    "reviewed_at": {
+      "type": "string",
+      "title": "Reviewed At"
+    },
+    "notes": {
+      "type": "string",
+      "title": "Admin Notes"
+    }
+  },
+  "required": [
+    "full_name",
+    "phone",
+    "status"
+  ]
+}
