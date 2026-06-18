@@ -349,3 +349,15 @@
 - [x] Add admin PIN login gate to dashboard (PIN verified server-side via /api/admin/verify-pin)
 - [x] Show live stats: total/paid/processing/failed counts + GH₵ revenue collected
 - [x] Override modal calls real overrideStatus mutation with reason field
+
+## Wallet System (Jun 18)
+
+- [ ] Server: wallet.topup tRPC endpoint — calls Hubtel Receive Money for rider top-up
+- [ ] Server: wallet.getBalance tRPC endpoint — fetch rider/driver wallet balance from Firestore
+- [ ] Server: wallet.getTransactions tRPC endpoint — fetch wallet transaction history
+- [ ] Server: wallet.transfer tRPC endpoint — transfer fare from rider wallet to driver wallet on ride completion
+- [ ] Hubtel webhook: handle wallet top-up callback and credit rider wallet
+- [ ] Rider app: Wallet screen with balance display and top-up flow (Hubtel MoMo prompt)
+- [ ] Rider app: payment method selector — choose wallet or MoMo on ride booking
+- [ ] Driver app: earnings screen shows live wallet balance from Firestore
+- [ ] Ride completion: auto-deduct fare from rider wallet and credit driver wallet
