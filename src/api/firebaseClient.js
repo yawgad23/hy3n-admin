@@ -140,8 +140,8 @@ function buildQuery(collectionName, filters = {}, orderByStr, limitNum) {
   const order = parseOrderBy(orderByStr);
   if (order) {
     constraints.push(orderBy(order.field, order.direction));
-  } else {
-    // Default: order by created_date descending so newest first
+  } else if (Object.keys(filters).length === 0) {
+    // Default: order by created_date descending so newest first (only if no filters)
     constraints.push(orderBy('created_date', 'desc'));
   }
 
