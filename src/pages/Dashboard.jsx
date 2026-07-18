@@ -39,6 +39,9 @@ export default function Dashboard() {
       setDrivers(d);
       setRiders(ri);
       setLoading(false);
+    }).catch((err) => {
+      console.error("[Dashboard] Error loading data:", err);
+      setLoading(false);
     });
   }, []);
 
