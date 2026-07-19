@@ -269,7 +269,7 @@ export default function DailyCommissions() {
                   <div>
                     <p className="text-xs text-muted-foreground">MoMo Transaction Reference</p>
                     <p className="font-mono font-bold text-white text-sm tracking-wider mt-0.5">
-                      {record.momo_reference || "—"}
+                      {record.hubtel_transaction_id || record.momo_reference || "—"}
                     </p>
                   </div>
                   <div className="text-right">
@@ -279,6 +279,34 @@ export default function DailyCommissions() {
                     </p>
                   </div>
                 </div>
+
+                {/* Full Transaction Details */}
+                {(record.hubtel_transaction_id || record.hubtel_reference || record.hubtel_status) && (
+                  <div className="mt-2 bg-hy3n-bg rounded-xl px-4 py-3 flex flex-col gap-2">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide border-b border-hy3n-border/30 pb-1 mb-1">Transaction Details</p>
+                    
+                    {record.hubtel_reference && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">Client Reference</span>
+                        <span className="text-xs text-white font-mono">{record.hubtel_reference}</span>
+                      </div>
+                    )}
+                    
+                    {record.hubtel_status && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">Provider Status</span>
+                        <span className="text-xs text-white">{record.hubtel_status}</span>
+                      </div>
+                    )}
+
+                    {record.hubtel_message && (
+                      <div className="flex justify-between items-start gap-4">
+                        <span className="text-xs text-muted-foreground">Message</span>
+                        <span className="text-xs text-white text-right max-w-[200px]">{record.hubtel_message}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Rejection reason if rejected */}
                 {record.status === "rejected" && record.rejection_reason && (
