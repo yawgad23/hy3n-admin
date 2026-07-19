@@ -30,17 +30,27 @@ const geocodeCache = {};
 async function geocode(query) {
   if (!query) return null;
   if (geocodeCache[query]) return geocodeCache[query];
-  // Add "Ghana" context to improve accuracy
-  const q = query.toLowerCase().includes("ghana") ? query : `${query}, Ghana`;
-  const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
-  const res = await fetch(url, { headers: { "Accept-Language": "en" } });
-  const data = await res.json();
-  if (data?.[0]) {
-    const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-    geocodeCache[query] = coords;
-    return coords;
+  try {
+    const q = query.toLowerCase().includes("ghana") ? query : `${query}, Ghana`;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
+    const res = await fetch(url, { 
+      headers: { 
+        "Accept-Language": "en",
+        "User-Agent": "HY3N-Admin/1.0"
+      } 
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (data?.[0]) {
+      const coords = [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      geocodeCache[query] = coords;
+      return coords;
+    }
+    return null;
+  } catch (error) {
+    console.error("Geocoding failed for", query, error);
+    return null;
   }
-  return null;
 }
 
 function FitBounds({ points }) {
@@ -69,8 +79,12 @@ export default function LiveMap({ rides }) {
         geocode(ride.dropoff_location || ride.destination_address),
       ]);
       return { ride, pickup, dropoff };
-    })).then(results => {
+    }))
+    .then(results => {
       setRideCoords(results.filter(r => r.pickup || r.dropoff));
+    })
+    .catch(err => console.error("Map geocoding error:", err))
+    .finally(() => {
       setLoading(false);
     });
   }, [rides.map(r => r.id).join(",")]);
