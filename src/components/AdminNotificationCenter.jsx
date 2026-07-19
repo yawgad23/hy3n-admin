@@ -65,7 +65,7 @@ export default function AdminNotificationCenter({ isOpen, onClose }) {
           id: `comm_${c.id}`,
           type: "commission_pending",
           title: "Commission Awaiting Review",
-          body: `Driver submitted GH₵${c.amount || 50} commission with reference: ${c.transaction_reference || "—"}`,
+          body: `Driver submitted GH₵${c.amount || 1} commission with reference: ${c.transaction_reference || "—"}`,
           created_date: c.created_date,
           read: false,
           link: "/daily-commissions",

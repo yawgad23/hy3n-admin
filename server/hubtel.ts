@@ -16,14 +16,13 @@
  * Email retail@hubtel.com to request this scope. Also provide your server IP for whitelisting.
  *
  * Commission rates:
- *   - Car drivers (Standard/Comfort/Kantanka/Executive): GH₵50/day
- *   - Okada / Delivery drivers: GH₵30/day
+ *   - All drivers: GH₵1/day
  */
 
 export interface HubtelChargeRequest {
   /** Driver's MoMo phone number (e.g. "0244123456") */
   customerMsisdn: string;
-  /** Amount in GH₵ (50 for cars, 30 for okada/delivery) */
+  /** Amount in GH₵ */
   amount: number;
   /** Driver's full name */
   customerName: string;
@@ -124,11 +123,7 @@ export async function chargeDriverCommission(req: HubtelChargeRequest): Promise<
  * Determine commission amount based on driver service type.
  */
 export function getCommissionAmount(serviceType: string): number {
-  const lower = (serviceType || '').toLowerCase();
-  if (lower.includes('okada') || lower.includes('motor') || lower.includes('delivery') || lower.includes('bike')) {
-    return 30;
-  }
-  return 50; // All car types: standard, comfort, kantanka, executive
+  return 1; // All drivers: 1/day
 }
 
 /**

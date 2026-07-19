@@ -256,7 +256,7 @@ export default function DailyCommissions() {
                   <div className="text-right shrink-0">
                     <p className="text-lg font-bold text-hy3n-gold">GH₵{record.amount}</p>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                      Expected: GH₵{(record.service_type === "okada" || record.service_type === "delivery") ? 30 : 50}
+                      Expected: GH₵1
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
                       {record.date ? format(parseISO(record.date), "MMM d, yyyy") : "—"}
