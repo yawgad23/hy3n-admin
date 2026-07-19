@@ -8,7 +8,7 @@ import { format, isToday, parseISO } from "date-fns";
 
 const STATUS_STYLES = {
   pending:   { label: "Pending",   bg: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-  confirmed: { label: "Confirmed", bg: "bg-green-500/10  text-green-400  border-green-500/20"  },
+  paid: { label: "Paid", bg: "bg-green-500/10  text-green-400  border-green-500/20"  },
   rejected:  { label: "Rejected",  bg: "bg-red-500/10   text-red-400    border-red-500/20"    },
 };
 
@@ -48,13 +48,13 @@ export default function DailyCommissions() {
     return () => clearInterval(interval);
   }, []);
 
-  // Confirm a payment → set status to confirmed
+  // Confirm a payment → set status to paid
   const handleConfirm = async (record) => {
     setActionLoading(record.id);
     try {
       await firebaseClient.entities.DailyCommission.update(record.id, {
-        status: "confirmed",
-        confirmed_at: new Date().toISOString(),
+        status: "paid",
+        paid_at: new Date().toISOString(),
         rejection_reason: "",
       });
       // Also update the driver profile to mark commission_paid_today
@@ -109,14 +109,14 @@ export default function DailyCommissions() {
   // Summary stats for the selected date
   const dateRecords   = records.filter(r => r.date === dateFilter);
   const pendingCount  = dateRecords.filter(r => r.status === "pending").length;
-  const confirmedCount = dateRecords.filter(r => r.status === "confirmed").length;
+  const paidCount = dateRecords.filter(r => r.status === "paid").length;
   const totalCollected = dateRecords
-    .filter(r => r.status === "confirmed")
+    .filter(r => r.status === "paid")
     .reduce((s, r) => s + (r.amount || 0), 0);
 
   // Overall stats
   const totalOverall = records
-    .filter(r => r.status === "confirmed")
+    .filter(r => r.status === "paid")
     .reduce((s, r) => s + (r.amount || 0), 0);
 
   return (
@@ -151,9 +151,9 @@ export default function DailyCommissions() {
         <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <CheckCircle size={16} className="text-green-400" />
-            <span className="text-xs text-muted-foreground uppercase tracking-wide">Confirmed</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wide">Paid</span>
           </div>
-          <p className="text-2xl font-bold text-green-400">{confirmedCount}</p>
+          <p className="text-2xl font-bold text-green-400">{paidCount}</p>
           <p className="text-xs text-muted-foreground mt-0.5">drivers active</p>
         </div>
         <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-4">
@@ -199,7 +199,7 @@ export default function DailyCommissions() {
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
-          <option value="confirmed">Confirmed</option>
+          <option value="paid">Paid</option>
           <option value="rejected">Rejected</option>
         </select>
       </div>
@@ -213,7 +213,7 @@ export default function DailyCommissions() {
         <div className="text-center py-16 text-muted-foreground">
           <Users size={40} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">No commission records found for the selected filters.</p>
-          {pendingCount === 0 && confirmedCount === 0 && (
+          {pendingCount === 0 && paidCount === 0 && (
             <p className="text-xs mt-2 opacity-60">Drivers submit their MoMo reference from the driver app.</p>
           )}
         </div>
@@ -288,11 +288,11 @@ export default function DailyCommissions() {
                   </div>
                 )}
 
-                {/* Confirmed info */}
-                {record.status === "confirmed" && record.confirmed_at && (
+                {/* Paid info */}
+                {record.status === "paid" && (record.paid_at || record.confirmed_at) && (
                   <div className="mt-2 flex items-center gap-2 text-xs text-green-400">
                     <CheckCircle size={13} />
-                    Confirmed at {format(new Date(record.confirmed_at), "h:mm a, MMM d")}
+                    Paid at {format(new Date(record.paid_at || record.confirmed_at), "h:mm a, MMM d")}
                   </div>
                 )}
 
