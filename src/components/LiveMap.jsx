@@ -65,8 +65,8 @@ export default function LiveMap({ rides }) {
 
     Promise.all(rides.map(async (ride) => {
       const [pickup, dropoff] = await Promise.all([
-        geocode(ride.pickup_location),
-        geocode(ride.dropoff_location),
+        geocode(ride.pickup_location || ride.pickup_address),
+        geocode(ride.dropoff_location || ride.destination_address),
       ]);
       return { ride, pickup, dropoff };
     })).then(results => {
@@ -112,7 +112,7 @@ export default function LiveMap({ rides }) {
                   <div style={{ minWidth: 160 }}>
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>{ride.rider_name}</div>
                     <div style={{ fontSize: 11, color: "#888" }}>Pickup</div>
-                    <div style={{ fontSize: 12 }}>{ride.pickup_location}</div>
+                    <div style={{ fontSize: 12 }}>{ride.pickup_location || ride.pickup_address}</div>
                     <div style={{ marginTop: 6, padding: "2px 8px", borderRadius: 99, display: "inline-block", background: statusColor[ride.status] + "22", color: statusColor[ride.status], fontSize: 11, fontWeight: 600 }}>
                       {ride.status}
                     </div>
@@ -128,7 +128,7 @@ export default function LiveMap({ rides }) {
                   <div style={{ minWidth: 160 }}>
                     <div style={{ fontWeight: 700, marginBottom: 4 }}>{ride.rider_name}</div>
                     <div style={{ fontSize: 11, color: "#888" }}>Dropoff</div>
-                    <div style={{ fontSize: 12 }}>{ride.dropoff_location}</div>
+                    <div style={{ fontSize: 12 }}>{ride.dropoff_location || ride.destination_address}</div>
                   </div>
                 </Popup>
               </Marker>
