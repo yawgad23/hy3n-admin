@@ -29,7 +29,7 @@ export default function Analytics() {
   const avgRating = rides.filter(r => r.rating).length ? (rides.filter(r=>r.rating).reduce((s,r)=>s+(r.rating||0),0) / rides.filter(r=>r.rating).length).toFixed(1) : "N/A";
 
   // Status distribution
-  const statusData = ["completed","in_progress","requested","accepted","cancelled"].map(s => ({
+  const statusData = ["completed","in_progress","searching","accepted","cancelled"].map(s => ({
     name: s, value: rides.filter(r => r.status === s).length
   })).filter(d => d.value > 0);
 

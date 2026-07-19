@@ -115,6 +115,14 @@ export default function DispatchEngine({ ride, onClose, onDispatched }) {
       status: "matched",
       vehicle_type: entry.driver.vehicle_type,
     });
+    
+    await firebaseClient.entities.PushNotification.create({
+      user_id: entry.driver.id,
+      title: "New Ride Assigned",
+      body: `You have been assigned to a ride for ${ride.rider_name || "a passenger"}.`,
+      type: "ride_assigned",
+      read: false,
+    }).catch(e => console.error("Failed to send notification:", e));
     setDispatched(true);
     setDispatching(false);
     setTimeout(() => {
@@ -155,7 +163,7 @@ export default function DispatchEngine({ ride, onClose, onDispatched }) {
             {ride.vehicle_type && (
               <div className="flex items-center gap-2 text-sm">
                 <Car size={14} className="text-muted-foreground shrink-0" />
-                <span className="text-muted-foreground">{ride.vehicle_type} requested</span>
+                <span className="text-muted-foreground">{ride.vehicle_type} searching</span>
               </div>
             )}
           </div>

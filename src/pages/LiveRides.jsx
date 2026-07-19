@@ -5,7 +5,7 @@ import DispatchEngine from "../components/DispatchEngine";
 import LiveMap from "../components/LiveMap";
 
 const tripStatusConfig = {
-  "requested":   { label: "Waiting for Driver", color: "text-blue-400 bg-blue-400/10", dot: "bg-blue-400", pulse: false },
+  "searching":   { label: "Waiting for Driver", color: "text-blue-400 bg-blue-400/10", dot: "bg-blue-400", pulse: false },
   "matched":    { label: "Driver Assigned", color: "text-purple-400 bg-purple-400/10", dot: "bg-purple-400", pulse: true },
   "in_progress": { label: "Trip Started ✓", color: "text-hy3n-green bg-hy3n-green/10", dot: "bg-hy3n-green", pulse: true },
   "completed":   { label: "Completed", color: "text-muted-foreground bg-white/5", dot: "bg-muted-foreground", pulse: false },
@@ -33,9 +33,9 @@ export default function LiveRides() {
     return () => clearInterval(interval);
   }, []);
 
-  const active = rides.filter(r => ["requested","matched","in_progress"].includes(r.status));
+  const active = rides.filter(r => ["searching","matched","in_progress"].includes(r.status));
   const tripStarted = active.filter(r => r.status === "in_progress");
-  const waiting = active.filter(r => r.status === "requested");
+  const waiting = active.filter(r => r.status === "searching");
   const accepted = active.filter(r => r.status === "matched");
 
   const updateRideStatus = async (ride, status) => {
@@ -158,7 +158,7 @@ export default function LiveRides() {
 
                   {/* Admin actions */}
                   <div className="flex gap-2 flex-wrap">
-                    {ride.status === "requested" && (
+                    {ride.status === "searching" && (
                       <button onClick={() => setDispatchRide(ride)}
                         className="text-xs text-hy3n-gold border border-hy3n-gold/30 hover:bg-hy3n-gold/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1">
                         ⚡ Dispatch

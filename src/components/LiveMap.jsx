@@ -92,7 +92,7 @@ export default function LiveMap({ rides }) {
   const allPoints = rideCoords.flatMap(r => [r.pickup, r.dropoff].filter(Boolean));
   const centerGhana = [7.9465, -1.0232];
 
-  const statusColor = { "requested": "#3B82F6", "accepted": "#8B5CF6", "in_progress": "#22C55E" };
+  const statusColor = { "searching": "#3B82F6", "accepted": "#8B5CF6", "in_progress": "#22C55E" };
 
   return (
     <div className="relative w-full h-full rounded-2xl overflow-hidden">
@@ -162,7 +162,7 @@ export default function LiveMap({ rides }) {
 
       {/* Legend */}
       <div className="absolute bottom-3 left-3 z-[999] bg-black/80 backdrop-blur-sm border border-white/10 rounded-xl px-3 py-2 flex items-center gap-4 text-xs text-white">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400" /> Requested</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400" /> Searching</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-400" /> Accepted</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500" /> In Progress</span>
       </div>

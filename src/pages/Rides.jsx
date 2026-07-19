@@ -7,7 +7,7 @@ const statusColors = {
   "completed": "text-hy3n-green bg-hy3n-green/10",
   "in_progress": "text-hy3n-gold bg-hy3n-gold/10",
   "cancelled": "text-hy3n-red bg-hy3n-red/10",
-  "requested": "text-blue-400 bg-blue-400/10",
+  "searching": "text-blue-400 bg-blue-400/10",
   "matched": "text-purple-400 bg-purple-400/10",
 };
 
@@ -72,7 +72,7 @@ export default function Rides() {
           />
         </div>
         <div className="flex gap-2 flex-wrap">
-          {["All", "requested", "matched", "in_progress", "completed", "cancelled"].map(s => (
+          {["All", "searching", "matched", "in_progress", "completed", "cancelled"].map(s => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}

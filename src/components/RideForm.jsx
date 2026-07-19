@@ -10,7 +10,7 @@ export default function RideForm({ ride, onClose, onSaved }) {
     driver_name: ride?.driver_name || "",
     pickup_location: ride?.pickup_location || "",
     dropoff_location: ride?.dropoff_location || "",
-    status: ride?.status || "requested",
+    status: ride?.status || "searching",
     fare: ride?.fare || "",
     distance_km: ride?.distance_km || "",
     duration_min: ride?.duration_min || "",
@@ -134,7 +134,7 @@ export default function RideForm({ ride, onClose, onSaved }) {
               <label className="text-xs text-muted-foreground font-medium mb-1 block">Status</label>
               <select value={form.status} onChange={e => setForm(p => ({ ...p, status: e.target.value }))}
                 className="w-full bg-hy3n-bg border border-hy3n-border text-white rounded-xl px-3 py-2 text-sm focus:outline-none">
-                {["requested","accepted","in_progress","completed","cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
+                {["searching","accepted","in_progress","completed","cancelled"].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
 
