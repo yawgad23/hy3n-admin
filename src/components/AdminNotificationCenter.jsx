@@ -68,7 +68,7 @@ export default function AdminNotificationCenter({ isOpen, onClose }) {
           body: `Driver submitted GH₵${c.amount || 1} commission with reference: ${c.transaction_reference || "—"}`,
           created_date: c.created_date,
           read: false,
-          link: "/daily-commissions",
+          link: "/commissions",
         });
       });
 

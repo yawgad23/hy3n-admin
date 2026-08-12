@@ -78,9 +78,15 @@ export default function LiveMap({ rides }) {
     setLoading(true);
 
     Promise.all(rides.map(async (ride) => {
+      const getCoord = async (lat, lng, address) => {
+        if (lat && lng) return [lat, lng];
+        if (address) return await geocode(address);
+        return null;
+      };
+      
       const [pickup, dropoff] = await Promise.all([
-        geocode(ride.pickup_location || ride.pickup_address),
-        geocode(ride.dropoff_location || ride.destination_address),
+        getCoord(ride.pickup?.lat, ride.pickup?.lng, ride.pickup_location || ride.pickup_address),
+        getCoord(ride.destination?.lat, ride.destination?.lng, ride.dropoff_location || ride.destination_address),
       ]);
       return { ride, pickup, dropoff };
     }))

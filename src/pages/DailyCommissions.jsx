@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { firebaseClient } from "@/api/firebaseClient";
 import {
   CheckCircle, XCircle, Clock, Phone, Car, Bike, Package,
@@ -7,9 +8,13 @@ import {
 import { format, isToday, parseISO } from "date-fns";
 
 const STATUS_STYLES = {
-  pending:   { label: "Pending",   bg: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
-  paid: { label: "Paid", bg: "bg-green-500/10  text-green-400  border-green-500/20"  },
-  rejected:  { label: "Rejected",  bg: "bg-red-500/10   text-red-400    border-red-500/20"    },
+  pending:    { label: "Pending",    bg: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20" },
+  processing: { label: "Processing", bg: "bg-blue-500/10 text-blue-400 border-blue-500/20" },
+  ussd_sent:  { label: "USSD Sent",  bg: "bg-purple-500/10 text-purple-400 border-purple-500/20" },
+  confirmed:  { label: "Confirmed",  bg: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+  paid:       { label: "Paid",       bg: "bg-green-500/10  text-green-400  border-green-500/20"  },
+  failed:     { label: "Failed",     bg: "bg-red-500/10    text-red-400    border-red-500/20"    },
+  rejected:   { label: "Rejected",   bg: "bg-red-500/10    text-red-400    border-red-500/20"    },
 };
 
 function ServiceIcon({ type }) {
@@ -24,7 +29,7 @@ export default function DailyCommissions() {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter]   = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dateFilter, setDateFilter]   = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [rejectReason, setRejectReason]   = useState("");
   const [rejectTarget, setRejectTarget]   = useState(null);
@@ -124,18 +129,34 @@ export default function DailyCommissions() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Daily Commission Payments</h1>
+          <h1 className="text-2xl font-bold text-white">Commission Fee Review</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            Review and confirm driver daily fee submissions
+            Review and confirm driver commission fee submissions
           </p>
         </div>
         <button
           onClick={fetchRecords}
           className="flex items-center gap-2 border border-hy3n-border text-muted-foreground hover:text-white px-4 py-2 rounded-xl text-sm transition-colors"
         >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          Refresh
+          <RefreshCw size={15} className={loading ? "animate-spin text-hy3n-gold" : ""} />
+          <span>Refresh</span>
         </button>
+      </div>
+
+      {/* Banner linking to Pricing */}
+      <div className="bg-hy3n-green/10 border border-hy3n-green/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-full bg-hy3n-green/20 flex items-center justify-center text-hy3n-green shrink-0">
+            <DollarSign size={18} />
+          </div>
+          <div>
+            <h3 className="text-white font-semibold text-sm">Want to change the Commission Fee amount?</h3>
+            <p className="text-xs text-muted-foreground">The required commission fee per vehicle type (e.g. GHS 15) is configured on the Pricing engine page.</p>
+          </div>
+        </div>
+        <Link to="/pricing" className="px-4 py-2 bg-hy3n-green text-black font-semibold rounded-xl hover:bg-hy3n-green/90 transition text-xs shrink-0 text-center shadow-sm">
+          Configure Commission Fees →
+        </Link>
       </div>
 
       {/* Summary cards */}
@@ -186,12 +207,22 @@ export default function DailyCommissions() {
             className="w-full bg-hy3n-surface border border-hy3n-border text-white rounded-xl pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:border-hy3n-gold/60"
           />
         </div>
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={e => setDateFilter(e.target.value)}
-          className="bg-hy3n-surface border border-hy3n-border text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-hy3n-gold/60"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={e => setDateFilter(e.target.value)}
+            className="bg-hy3n-surface border border-hy3n-border text-white rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-hy3n-gold/60"
+          />
+          {dateFilter && (
+            <button
+              onClick={() => setDateFilter("")}
+              className="text-xs bg-hy3n-border/50 hover:bg-hy3n-border text-white px-3 py-2.5 rounded-xl transition-colors"
+            >
+              All Dates
+            </button>
+          )}
+        </div>
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
@@ -199,7 +230,11 @@ export default function DailyCommissions() {
         >
           <option value="all">All Statuses</option>
           <option value="pending">Pending</option>
+          <option value="processing">Processing</option>
+          <option value="ussd_sent">USSD Sent</option>
+          <option value="confirmed">Confirmed</option>
           <option value="paid">Paid</option>
+          <option value="failed">Failed</option>
           <option value="rejected">Rejected</option>
         </select>
       </div>

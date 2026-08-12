@@ -77,6 +77,7 @@ function SectionHeader({ icon: Icon, title }) {
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function DriverForm({ driver, onClose, onSaved }) {
   const isEdit = !!driver?.id;
+  console.log("Loaded driver:", driver);
 
   const [form, setForm] = useState({
     // Account
@@ -97,13 +98,13 @@ export default function DriverForm({ driver, onClose, onSaved }) {
     status: driver?.status || "Active",
     approval_status: driver?.approval_status || "approved",
     // Documents
-    ghana_card_front_url: driver?.ghana_card_front_url || "",
-    ghana_card_back_url: driver?.ghana_card_back_url || "",
-    license_front_url: driver?.license_front_url || "",
-    license_back_url: driver?.license_back_url || "",
-    vehicle_photo_url: driver?.vehicle_photo_url || "",
-    insurance_url: driver?.insurance_url || "",
-    roadworthy_url: driver?.roadworthy_url || "",
+    ghana_card_front_url: driver?.documents?.ghana_card_front || driver?.ghana_card_front_url || "",
+    ghana_card_back_url: driver?.documents?.ghana_card_back || driver?.ghana_card_back_url || "",
+    license_front_url: driver?.documents?.license_front || driver?.license_front_url || "",
+    license_back_url: driver?.documents?.license_back || driver?.license_back_url || "",
+    vehicle_photo_url: driver?.documents?.vehicle_photo || driver?.vehicle_photo_url || "",
+    insurance_url: driver?.documents?.insurance_photo || driver?.insurance_url || "",
+    roadworthy_url: driver?.documents?.roadworthy_photo || driver?.roadworthy_url || "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
@@ -118,7 +119,20 @@ export default function DriverForm({ driver, onClose, onSaved }) {
     setSaving(true);
     try {
       if (isEdit) {
-        const { password, ...data } = form;
+        const { password, ghana_card_front_url, ghana_card_back_url, license_front_url, license_back_url, vehicle_photo_url, insurance_url, roadworthy_url, ...rest } = form;
+        const data = {
+          ...rest,
+          documents: {
+            ...driver?.documents,
+            ghana_card_front: ghana_card_front_url,
+            ghana_card_back: ghana_card_back_url,
+            license_front: license_front_url,
+            license_back: license_back_url,
+            vehicle_photo: vehicle_photo_url,
+            insurance_photo: insurance_url,
+            roadworthy_photo: roadworthy_url,
+          }
+        };
         await firebaseClient.entities.DriverProfile.update(driver.id, data);
       } else {
         if (!form.email || !form.password) {
@@ -134,12 +148,21 @@ export default function DriverForm({ driver, onClose, onSaved }) {
         const auth = getAuth();
         const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
         const uid = cred.user.uid;
-        const { password, ...profileData } = form;
+        const { password, ghana_card_front_url, ghana_card_back_url, license_front_url, license_back_url, vehicle_photo_url, insurance_url, roadworthy_url, ...rest } = form;
         await firebaseClient.entities.DriverProfile.create({
-          ...profileData,
+          ...rest,
           uid,
           created_by_admin: true,
           approval_status: form.approval_status || "approved",
+          documents: {
+            ghana_card_front: ghana_card_front_url,
+            ghana_card_back: ghana_card_back_url,
+            license_front: license_front_url,
+            license_back: license_back_url,
+            vehicle_photo: vehicle_photo_url,
+            insurance_photo: insurance_url,
+            roadworthy_photo: roadworthy_url,
+          }
         });
       }
       onSaved();

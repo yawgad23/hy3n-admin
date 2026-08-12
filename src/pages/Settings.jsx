@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { firebaseClient } from "@/api/firebaseClient";
 import {
   Shield, UserPlus, Trash2, CheckCircle, XCircle, RefreshCw,
-  AlertTriangle, Copy, Eye, EyeOff, Key, Save, Lock
+  AlertTriangle, Copy, Eye, EyeOff, Key, Save, Lock, MapPin, DollarSign
 } from "lucide-react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "@/api/firebaseClient";
 
 const SUPER_ADMIN_EMAILS = (import.meta.env.VITE_SUPER_ADMIN_EMAILS || "yawgad23@gmail.com")
   .split(",")
@@ -38,6 +41,16 @@ export default function Settings() {
   const [editCodeValue, setEditCodeValue] = useState("");
   const [showEditCode, setShowEditCode] = useState(false);
 
+  // Dispatch Config
+  const [dispatchRadius, setDispatchRadius] = useState(10);
+  const [dispatchRadiusSaving, setDispatchRadiusSaving] = useState(false);
+  const [dispatchRadiusMsg, setDispatchRadiusMsg] = useState("");
+
+  // Platform Fee Config
+  const [dailyPlatformFee, setDailyPlatformFee] = useState(1);
+  const [platformFeeSaving, setPlatformFeeSaving] = useState(false);
+  const [platformFeeMsg, setPlatformFeeMsg] = useState("");
+
   useEffect(() => {
     loadData();
   }, []);
@@ -55,6 +68,24 @@ export default function Settings() {
       if (configList.length > 0) {
         setMasterCode(configList[0].value || FALLBACK_CODE);
         setMasterCodeDoc(configList[0]);
+      }
+      
+      const dispatchDocRef = doc(db, 'settings', 'dispatch');
+      const dispatchSnap = await getDoc(dispatchDocRef);
+      if (dispatchSnap.exists()) {
+        const data = dispatchSnap.data();
+        if (typeof data.max_dispatch_radius_km === 'number') {
+          setDispatchRadius(data.max_dispatch_radius_km);
+        }
+      }
+
+      const feeDocRef = doc(db, 'settings', 'platform_fee');
+      const feeSnap = await getDoc(feeDocRef);
+      if (feeSnap.exists()) {
+        const data = feeSnap.data();
+        if (typeof data.daily_fee === 'number') {
+          setDailyPlatformFee(data.daily_fee);
+        }
       }
     } catch (e) {
       setAdmins([]);
@@ -95,6 +126,42 @@ export default function Settings() {
       setMasterCodeMsg("Failed to save: " + e.message);
     }
     setMasterCodeSaving(false);
+  };
+
+  // ── Dispatch config change ──────────────────────────────────────
+  const saveDispatchRadius = async () => {
+    setDispatchRadiusSaving(true);
+    setDispatchRadiusMsg("");
+    try {
+      const dispatchDocRef = doc(db, 'settings', 'dispatch');
+      await setDoc(dispatchDocRef, {
+        max_dispatch_radius_km: Number(dispatchRadius),
+        updated_by: currentUser?.email,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+      setDispatchRadiusMsg("✓ Dispatch radius updated successfully.");
+    } catch (e) {
+      setDispatchRadiusMsg("Failed to save: " + e.message);
+    }
+    setDispatchRadiusSaving(false);
+  };
+
+  // ── Platform Fee config change ──────────────────────────────────
+  const savePlatformFee = async () => {
+    setPlatformFeeSaving(true);
+    setPlatformFeeMsg("");
+    try {
+      const feeDocRef = doc(db, 'settings', 'platform_fee');
+      await setDoc(feeDocRef, {
+        daily_fee: Number(dailyPlatformFee),
+        updated_by: currentUser?.email,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+      setPlatformFeeMsg("✓ Daily platform fee updated successfully.");
+    } catch (e) {
+      setPlatformFeeMsg("Failed to save: " + e.message);
+    }
+    setPlatformFeeSaving(false);
   };
 
   // ── Add admin ──────────────────────────────────────────────────
@@ -428,6 +495,87 @@ export default function Settings() {
               )}
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Dispatch Configuration */}
+      <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-6 mb-6">
+        <h2 className="font-semibold text-white mb-1">Dispatch Configuration</h2>
+        <p className="text-sm text-muted-foreground mb-4">Configure rules for assigning rides to drivers</p>
+
+        <div className="bg-black/20 rounded-xl p-5 border border-white/5 max-w-xl">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-hy3n-gold/10 flex items-center justify-center text-hy3n-gold">
+              <MapPin size={16} />
+            </div>
+            <div>
+              <h3 className="text-white font-medium text-sm">Max Dispatch Radius (km)</h3>
+              <p className="text-xs text-muted-foreground">Drivers outside this radius will not receive push notifications for new rides.</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <input 
+              type="number" 
+              value={dispatchRadius}
+              onChange={(e) => setDispatchRadius(e.target.value)}
+              className="px-4 py-2.5 bg-hy3n-bg border border-hy3n-border rounded-xl text-white focus:outline-none focus:border-hy3n-gold w-32"
+              min="1"
+            />
+            <button 
+              onClick={saveDispatchRadius}
+              disabled={dispatchRadiusSaving}
+              className="px-5 py-2.5 bg-hy3n-gold text-black font-semibold rounded-xl hover:bg-hy3n-gold/90 transition disabled:opacity-50"
+            >
+              {dispatchRadiusSaving ? "Saving..." : "Save Config"}
+            </button>
+          </div>
+          {dispatchRadiusMsg && (
+            <p className={`mt-3 text-sm ${dispatchRadiusMsg.startsWith("✓") ? "text-green-400" : "text-red-400"}`}>
+              {dispatchRadiusMsg}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Daily Platform Fee Info Card */}
+      <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-6 mb-6">
+        <h2 className="font-semibold text-white mb-1">Global Daily Platform Fee</h2>
+        <p className="text-sm text-muted-foreground mb-4">Configure the daily platform fee required for all drivers</p>
+
+        <div className="bg-black/20 rounded-xl p-5 border border-white/5 max-w-xl">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-8 h-8 rounded-full bg-hy3n-green/10 flex items-center justify-center text-hy3n-green">
+              <DollarSign size={16} />
+            </div>
+            <div>
+              <h3 className="text-white font-medium text-sm">Daily Fee Amount (GHS)</h3>
+              <p className="text-xs text-muted-foreground">This fee applies uniformly to all drivers regardless of vehicle type.</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <input 
+              type="number" 
+              value={dailyPlatformFee}
+              onChange={(e) => setDailyPlatformFee(e.target.value)}
+              className="px-4 py-2.5 bg-hy3n-bg border border-hy3n-border rounded-xl text-white focus:outline-none focus:border-hy3n-gold w-32"
+              min="0"
+              step="0.5"
+            />
+            <button 
+              onClick={savePlatformFee}
+              disabled={platformFeeSaving}
+              className="px-5 py-2.5 bg-hy3n-gold text-black font-semibold rounded-xl hover:bg-hy3n-gold/90 transition disabled:opacity-50"
+            >
+              {platformFeeSaving ? "Saving..." : "Save Fee"}
+            </button>
+          </div>
+          {platformFeeMsg && (
+            <p className={`mt-3 text-sm ${platformFeeMsg.startsWith("✓") ? "text-green-400" : "text-red-400"}`}>
+              {platformFeeMsg}
+            </p>
+          )}
         </div>
       </div>
 

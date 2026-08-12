@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
@@ -22,10 +22,10 @@ import Pricing from './pages/Pricing';
 import Payouts from './pages/Payouts';
 import DriverOnboarding from './pages/DriverOnboarding';
 import Login from './pages/Login';
-import DailyCommissions from './pages/DailyCommissions';
 import RideReports from './pages/RideReports';
 import SendNotifications from './pages/SendNotifications';
 import DriverBonuses from './pages/DriverBonuses';
+import Transactions from './pages/Transactions';
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -63,7 +63,8 @@ const AuthenticatedApp = () => {
           <Route path="/riders" element={<Riders />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/commissions" element={<Commissions />} />
-          <Route path="/daily-commissions" element={<DailyCommissions />} />
+          <Route path="/daily-commissions" element={<Navigate to="/commissions" replace />} />
+          <Route path="/transactions" element={<Transactions />} />
           <Route path="/reports" element={<RideReports />} />
           <Route path="/support" element={<Support />} />
           <Route path="/live" element={<LiveRides />} />

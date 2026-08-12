@@ -2,19 +2,31 @@ import { useState, useEffect } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { Save, Zap, Info, Clock, Moon, Car, AlertTriangle } from "lucide-react";
 
-const VEHICLE_TYPES = ["Sedan", "SUV", "Tricycle", "Motorcycle", "Minivan"];
-const ICONS = { Sedan: "🚗", SUV: "🚙", Tricycle: "🛺", Motorcycle: "🏍️", Minivan: "🚐" };
+const VEHICLE_TYPES = ["Standard", "Comfort", "Executive", "Kantanka", "Okada", "Express Delivery"];
+const ICONS = { Standard: "🚗", Comfort: "🚙", Executive: "🏎️", Kantanka: "🚘", Okada: "🏍️", "Express Delivery": "📦" };
 
 const DEFAULTS = {
-  Sedan:      { base_fare: 5,  per_km_rate: 2.5, surge_multiplier: 1, minimum_fare: 8,  peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
-  SUV:        { base_fare: 8,  per_km_rate: 3.5, surge_multiplier: 1, minimum_fare: 12, peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
-  Tricycle:   { base_fare: 3,  per_km_rate: 1.5, surge_multiplier: 1, minimum_fare: 5,  peak_multiplier: 1.2, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.1, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.3, traffic_enabled: false, is_active: true },
-  Motorcycle: { base_fare: 2,  per_km_rate: 1.2, surge_multiplier: 1, minimum_fare: 4,  peak_multiplier: 1.2, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.1, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.2, traffic_enabled: false, is_active: true },
-  Minivan:    { base_fare: 10, per_km_rate: 4.0, surge_multiplier: 1, minimum_fare: 15, peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
+  Standard:  { base_fare: 11, per_km_rate: 4.18, surge_multiplier: 1, minimum_fare: 16.5, daily_platform_fee: 15, peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
+  Comfort:   { base_fare: 16.5, per_km_rate: 5.06, surge_multiplier: 1, minimum_fare: 27.5, daily_platform_fee: 20, peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
+  Executive: { base_fare: 27.5, per_km_rate: 6.6, surge_multiplier: 1, minimum_fare: 44, daily_platform_fee: 25, peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
+  Kantanka:  { base_fare: 13.2, per_km_rate: 4.62, surge_multiplier: 1, minimum_fare: 22, daily_platform_fee: 18, peak_multiplier: 1.3, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.2, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.5, traffic_enabled: false, is_active: true },
+  Okada:     { base_fare: 5.5, per_km_rate: 1.65, surge_multiplier: 1, minimum_fare: 8.8, daily_platform_fee: 5, peak_multiplier: 1.2, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.1, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.2, traffic_enabled: false, is_active: true },
+  "Express Delivery": { base_fare: 16.5, per_km_rate: 2.2, surge_multiplier: 1, minimum_fare: 22, daily_platform_fee: 10, peak_multiplier: 1.2, peak_start_hour: 7, peak_end_hour: 9, peak_start_hour_2: 17, peak_end_hour_2: 19, night_multiplier: 1.1, night_start_hour: 22, night_end_hour: 5, traffic_multiplier: 1.2, traffic_enabled: false, is_active: true },
 };
 
 export function calcDynamicFare(cfg, km = 5, previewCondition = null) {
   if (!cfg || !km) return null;
+  
+  const num = (v, def = 0) => {
+    if (v === undefined || v === null || v === "") return def;
+    if (typeof v === 'string') {
+      const parsed = Number(v.replace(',', '.'));
+      return isNaN(parsed) ? def : parsed;
+    }
+    const parsed = Number(v);
+    return isNaN(parsed) ? def : parsed;
+  };
+
   const now = new Date();
   const hour = previewCondition ? -1 : now.getHours();
 
@@ -23,23 +35,23 @@ export function calcDynamicFare(cfg, km = 5, previewCondition = null) {
 
   const isPeak = previewCondition === "peak" ||
     (previewCondition == null && (
-      inRange(hour, cfg.peak_start_hour ?? 7, cfg.peak_end_hour ?? 9) ||
-      inRange(hour, cfg.peak_start_hour_2 ?? 17, cfg.peak_end_hour_2 ?? 19)
+      inRange(hour, num(cfg.peak_start_hour, 7), num(cfg.peak_end_hour, 9)) ||
+      inRange(hour, num(cfg.peak_start_hour_2, 17), num(cfg.peak_end_hour_2, 19))
     ));
 
   const isNight = previewCondition === "night" ||
-    (previewCondition == null && inRange(hour, cfg.night_start_hour ?? 22, cfg.night_end_hour ?? 5));
+    (previewCondition == null && inRange(hour, num(cfg.night_start_hour, 22), num(cfg.night_end_hour, 5)));
 
   const isTraffic = previewCondition === "traffic" ||
     (previewCondition == null && cfg.traffic_enabled);
 
-  let dynamicMultiplier = cfg.surge_multiplier ?? 1;
-  if (isPeak)    dynamicMultiplier = Math.max(dynamicMultiplier, cfg.peak_multiplier ?? 1);
-  if (isNight)   dynamicMultiplier = Math.max(dynamicMultiplier, cfg.night_multiplier ?? 1);
-  if (isTraffic) dynamicMultiplier = Math.max(dynamicMultiplier, cfg.traffic_multiplier ?? 1);
+  let dynamicMultiplier = num(cfg.surge_multiplier, 1);
+  if (isPeak)    dynamicMultiplier = Math.max(dynamicMultiplier, num(cfg.peak_multiplier, 1));
+  if (isNight)   dynamicMultiplier = Math.max(dynamicMultiplier, num(cfg.night_multiplier, 1));
+  if (isTraffic) dynamicMultiplier = Math.max(dynamicMultiplier, num(cfg.traffic_multiplier, 1));
 
-  const base = (cfg.base_fare + cfg.per_km_rate * Number(km)) * dynamicMultiplier;
-  return Math.max(base, cfg.minimum_fare ?? 0).toFixed(2);
+  const base = (num(cfg.base_fare) + num(cfg.per_km_rate) * num(km)) * dynamicMultiplier;
+  return Math.max(base, num(cfg.minimum_fare)).toFixed(2);
 }
 
 function NumberInput({ label, value, onChange, step = "0.1", min = "0" }) {
@@ -93,6 +105,7 @@ export default function Pricing() {
       vehicle_type: vt,
       base_fare: Number(c.base_fare), per_km_rate: Number(c.per_km_rate),
       surge_multiplier: Number(c.surge_multiplier), minimum_fare: Number(c.minimum_fare),
+      daily_platform_fee: Number(c.daily_platform_fee ?? 15),
       peak_multiplier: Number(c.peak_multiplier), peak_start_hour: Number(c.peak_start_hour),
       peak_end_hour: Number(c.peak_end_hour), peak_start_hour_2: Number(c.peak_start_hour_2),
       peak_end_hour_2: Number(c.peak_end_hour_2), night_multiplier: Number(c.night_multiplier),
@@ -181,11 +194,11 @@ export default function Pricing() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white/5 rounded-xl px-3 py-2">
                     <p className="text-xs text-muted-foreground">5km base fare</p>
-                    <p className="text-white font-bold text-sm">GHS {normalFare}</p>
+                    <p className="text-white font-bold text-sm">GH₵ {normalFare}</p>
                   </div>
                   <div className={`rounded-xl px-3 py-2 ${previewCondition ? "bg-hy3n-gold/10 border border-hy3n-gold/20" : "bg-white/5"}`}>
                     <p className="text-xs text-muted-foreground">{preview === "normal" ? "Live estimate" : `${preview} fare`}</p>
-                    <p className={`font-bold text-sm ${previewCondition ? "text-hy3n-gold" : "text-white"}`}>GHS {previewFare}</p>
+                    <p className={`font-bold text-sm ${previewCondition ? "text-hy3n-gold" : "text-white"}`}>GH₵ {previewFare}</p>
                   </div>
                 </div>
               </div>

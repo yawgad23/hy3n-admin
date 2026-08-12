@@ -33,7 +33,17 @@ export default function LiveRides() {
     return () => clearInterval(interval);
   }, []);
 
-  const active = rides.filter(r => ["searching","matched","in_progress"].includes(r.status));
+  const active = rides.filter(r => {
+    if (!["searching", "matched", "in_progress"].includes(r.status)) return false;
+    
+    // Auto-expire "searching" (waiting) rides after 2 hours
+    const createdAt = r.created_at?.toDate ? r.created_at.toDate() : (r.created_at || r.created_date);
+    if (r.status === "searching" && createdAt) {
+      const ageHours = (new Date() - new Date(createdAt)) / (1000 * 60 * 60);
+      if (ageHours > 2) return false;
+    }
+    return true;
+  });
   const tripStarted = active.filter(r => r.status === "in_progress");
   const waiting = active.filter(r => r.status === "searching");
   const accepted = active.filter(r => r.status === "matched");

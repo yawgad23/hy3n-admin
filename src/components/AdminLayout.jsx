@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Car, Users, UserCircle, Settings,
   Menu, X, LogOut, Bell, ChevronRight, Wallet,
   MessageSquare, Radio, BarChart2, ClipboardList, DollarSign, CreditCard,
-  CheckSquare, Flag, Trophy
+  CheckSquare, Flag, Trophy, Receipt
 } from "lucide-react";
 import { firebaseClient } from "@/api/firebaseClient";
 import AdminNotificationCenter from "@/components/AdminNotificationCenter";
@@ -16,7 +16,7 @@ const navItems = [
   { path: "/riders", label: "Riders", icon: Users },
   { path: "/live", label: "Live Rides", icon: Radio },
   { path: "/commissions", label: "Commissions", icon: Wallet },
-  { path: "/daily-commissions", label: "Daily Fee Review", icon: CheckSquare },
+  { path: "/transactions", label: "Transactions", icon: Receipt },
   { path: "/reports", label: "Reports & Complaints", icon: Flag },
   { path: "/notifications", label: "Send Notifications", icon: Bell },
   { path: "/support", label: "Support", icon: MessageSquare },
@@ -57,7 +57,7 @@ export default function AdminLayout() {
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {navItems.map(({ path, label, icon: Icon }) => {
             const active = location.pathname === path;
             return (
@@ -80,13 +80,13 @@ export default function AdminLayout() {
         </nav>
 
         {/* Footer */}
-        <div className="px-3 py-4 border-t border-hy3n-border">
+        <div className="px-3 py-4 border-t border-hy3n-border bg-hy3n-surface shrink-0">
           <button
             onClick={() => firebaseClient.auth.logout("/")}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-white hover:bg-white/5 w-full transition-all"
+            className="flex items-center justify-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-red-400 hover:text-white hover:bg-red-600/80 border border-red-500/20 w-full transition-all shadow-sm"
           >
             <LogOut size={17} />
-            <span>Logout</span>
+            <span>Log Out</span>
           </button>
         </div>
       </aside>
@@ -120,6 +120,14 @@ export default function AdminLayout() {
               AD
             </div>
             <span className="text-sm font-medium text-white hidden sm:block">Admin</span>
+            <button
+              onClick={() => firebaseClient.auth.logout("/")}
+              className="ml-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-600 hover:text-white transition-all text-xs font-semibold shadow-sm"
+              title="Log out of admin dashboard"
+            >
+              <LogOut size={14} />
+              <span className="hidden md:inline">Log Out</span>
+            </button>
           </div>
         </header>
 

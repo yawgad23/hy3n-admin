@@ -115,6 +115,7 @@ export default function Drivers() {
                         </span>
                       )}
                     </div>
+                    <p className="text-[8px] text-red-400 break-all">{JSON.stringify(driver.documents)}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5">

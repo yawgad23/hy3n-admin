@@ -80,6 +80,11 @@
       "title": "Traffic Surge Active",
       "default": false
     },
+    "daily_platform_fee": {
+      "type": "number",
+      "title": "Daily Platform Fee (GHS)",
+      "default": 15
+    },
     "is_active": {
       "type": "boolean",
       "title": "Active",

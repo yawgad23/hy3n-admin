@@ -94,19 +94,40 @@ const storage = getStorage(app);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function normalizeData(data) {
+  if (!data) return data;
+  if (data.created_at && !data.created_date) {
+    data.created_date = data.created_at.toDate ? data.created_at.toDate().toISOString() : new Date(data.created_at).toISOString();
+  }
+  if (data.updated_at && !data.updated_date) {
+    data.updated_date = data.updated_at.toDate ? data.updated_at.toDate().toISOString() : new Date(data.updated_at).toISOString();
+  }
+  // Map nested objects to flat schema expected by admin components
+  if (data.pickup?.address && !data.pickup_address) {
+    data.pickup_address = data.pickup.address;
+  }
+  if (data.destination?.address && !data.destination_address) {
+    data.destination_address = data.destination.address;
+  }
+  if (data.driver?.name && !data.driver_name) {
+    data.driver_name = data.driver.name;
+  }
+  return data;
+}
+
 /**
  * Convert a Firestore document snapshot to a plain object with an `id` field.
  */
 function docToObj(docSnap) {
   if (!docSnap.exists()) return null;
-  return { id: docSnap.id, ...docSnap.data() };
+  return { id: docSnap.id, ...normalizeData(docSnap.data()) };
 }
 
 /**
  * Convert a Firestore query snapshot to an array of plain objects.
  */
 function snapshotToArray(querySnap) {
-  return querySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  return querySnap.docs.map(d => ({ id: d.id, ...normalizeData(d.data()) }));
 }
 
 /**
@@ -122,32 +143,19 @@ function parseOrderBy(orderByStr) {
 }
 
 /**
- * Build a Firestore query from filters, optional orderBy string, and optional limit.
+ * Build a Firestore query from filters only (no orderBy on Firestore side).
+ * We always sort in memory to avoid needing composite indexes.
  * `filters` is a plain object of { field: value } equality constraints.
  */
-function buildQuery(collectionName, filters = {}, orderByStr, limitNum) {
+function buildQuery(collectionName, filters = {}) {
   const colRef = collection(db, collectionName);
   const constraints = [];
 
-  // Equality filters
+  // Equality filters only — no Firestore orderBy (avoids index requirements)
   for (const [field, value] of Object.entries(filters)) {
     if (value !== undefined && value !== null) {
       constraints.push(where(field, '==', value));
     }
-  }
-
-  // OrderBy
-  const order = parseOrderBy(orderByStr);
-  if (order) {
-    constraints.push(orderBy(order.field, order.direction));
-  } else if (Object.keys(filters).length === 0) {
-    // Default: order by created_date descending so newest first (only if no filters)
-    constraints.push(orderBy('created_date', 'desc'));
-  }
-
-  // Limit
-  if (limitNum && limitNum > 0) {
-    constraints.push(firestoreLimit(limitNum));
   }
 
   return query(colRef, ...constraints);
@@ -159,6 +167,21 @@ function buildQuery(collectionName, filters = {}, orderByStr, limitNum) {
  * Create an entity API object for a given Firestore collection name.
  * The collection name is the snake_case version of the entity name.
  */
+function sortResults(results, orderByStr) {
+  if (!orderByStr || !results || !results.length) return results;
+  const order = parseOrderBy(orderByStr);
+  if (!order) return results;
+  const field = order.field;
+  const dir = order.direction === 'asc' ? 1 : -1;
+  return results.sort((a, b) => {
+    const valA = a[field] || a.created_date || a.created_at || a.submitted_at || a.date || "";
+    const valB = b[field] || b.created_date || b.created_at || b.submitted_at || b.date || "";
+    if (valA < valB) return -1 * dir;
+    if (valA > valB) return 1 * dir;
+    return 0;
+  });
+}
+
 function createEntityAPI(collectionName) {
   return {
     /**
@@ -167,14 +190,14 @@ function createEntityAPI(collectionName) {
      */
     async list(orderByStr, limitNum) {
       try {
-        const q = buildQuery(collectionName, {}, orderByStr, limitNum);
+        // Fetch without Firestore orderBy to avoid index requirements; sort in memory
+        const q = buildQuery(collectionName, {});
         const snap = await getDocs(q);
-        return snapshotToArray(snap);
+        const res = sortResults(snapshotToArray(snap), orderByStr);
+        return limitNum ? res.slice(0, limitNum) : res;
       } catch (err) {
-        // If orderBy field doesn't exist yet, fall back to unordered query
         console.warn(`[Firebase] list(${collectionName}) error:`, err.message);
-        const snap = await getDocs(collection(db, collectionName));
-        return snapshotToArray(snap);
+        return [];
       }
     },
 
@@ -184,20 +207,21 @@ function createEntityAPI(collectionName) {
      */
     async filter(filters = {}, orderByStr, limitNum) {
       try {
-        const q = buildQuery(collectionName, filters, orderByStr, limitNum);
+        // Use Firestore where clauses but no orderBy — sort in memory
+        const q = buildQuery(collectionName, filters);
         const snap = await getDocs(q);
-        return snapshotToArray(snap);
-      } catch (err) {
-        // Fallback: fetch all and filter in memory (handles missing index)
-        console.warn(`[Firebase] filter(${collectionName}) error, falling back to in-memory filter:`, err.message);
-        const snap = await getDocs(collection(db, collectionName));
         let results = snapshotToArray(snap);
+        // Apply in-memory filter as safety net (handles Firestore partial matches)
         for (const [field, value] of Object.entries(filters)) {
           if (value !== undefined && value !== null) {
             results = results.filter(doc => doc[field] === value);
           }
         }
-        return results;
+        const res = sortResults(results, orderByStr);
+        return limitNum ? res.slice(0, limitNum) : res;
+      } catch (err) {
+        console.warn(`[Firebase] filter(${collectionName}) error:`, err.message);
+        return [];
       }
     },
 
@@ -337,8 +361,11 @@ const ENTITY_COLLECTIONS = {
   SafetyAlert: 'safety_alerts',
   Schedule: 'schedules',
   ScheduledRide: 'scheduled_rides',
+  Setting: 'settings',
   Shift: 'shifts',
   SosIncident: 'sos_incidents',
+  WalletTransaction: 'wallet_transactions',
+  Wallet: 'wallets',
   SupportTicket: 'support_tickets',
   Task: 'tasks',
   Wallet: 'wallets',
@@ -584,12 +611,7 @@ const integrationsAPI = {
         const file_url = await getDownloadURL(storageRef);
         return { file_url };
       } catch (err) {
-        // Firebase Storage requires Blaze plan. Gracefully degrade on Spark plan.
-        const msg = err?.message || '';
-        if (err?.code === 'storage/unknown' || msg.includes('billing') || msg.includes('quota')) {
-          console.warn('[Firebase] Storage requires Blaze plan upgrade. File upload skipped.');
-          return { file_url: null };
-        }
+        console.error('[Firebase] UploadFile error:', err);
         throw err;
       }
     },
