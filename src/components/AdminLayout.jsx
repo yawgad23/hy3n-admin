@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   LayoutDashboard, Car, Users, UserCircle, Settings,
   Menu, X, LogOut, Bell, ChevronRight, Wallet,
-  MessageSquare, Radio, BarChart2, ClipboardList, DollarSign, CreditCard,
+  MessageSquare, Radio, BarChart2, DollarSign, CreditCard,
   CheckSquare, Flag, Trophy, Receipt
 } from "lucide-react";
 import { firebaseClient } from "@/api/firebaseClient";
@@ -12,7 +12,7 @@ import AdminNotificationCenter from "@/components/AdminNotificationCenter";
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard },
   { path: "/rides", label: "Rides", icon: Car },
-  { path: "/drivers", label: "Drivers", icon: UserCircle },
+  { path: "/drivers", label: "Driver Verification", icon: UserCircle },
   { path: "/riders", label: "Riders", icon: Users },
   { path: "/live", label: "Live Rides", icon: Radio },
   { path: "/commissions", label: "Commissions", icon: Wallet },
@@ -20,7 +20,6 @@ const navItems = [
   { path: "/reports", label: "Reports & Complaints", icon: Flag },
   { path: "/notifications", label: "Send Notifications", icon: Bell },
   { path: "/support", label: "Support", icon: MessageSquare },
-  { path: "/applications", label: "Applications", icon: ClipboardList },
   { path: "/payouts", label: "Payouts", icon: CreditCard },
   { path: "/pricing", label: "Pricing", icon: DollarSign },
   { path: "/analytics", label: "Analytics", icon: BarChart2 },

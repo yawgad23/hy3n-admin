@@ -1,241 +1,46 @@
-import { useState, useEffect } from "react";
-import { firebaseClient } from "@/api/firebaseClient";
-import { MapPin, Navigation, Clock, RefreshCw, Circle, AlertTriangle } from "lucide-react";
-import DispatchEngine from "../components/DispatchEngine";
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, Circle, Clock, MapPin, Navigation, RefreshCw } from "lucide-react";
 import LiveMap from "../components/LiveMap";
+import { adminApi } from "@/api/adminApi";
 
 const tripStatusConfig = {
-  "searching":   { label: "Waiting for Driver", color: "text-blue-400 bg-blue-400/10", dot: "bg-blue-400", pulse: false },
-  "matched":    { label: "Driver Assigned", color: "text-purple-400 bg-purple-400/10", dot: "bg-purple-400", pulse: true },
-  "in_progress": { label: "Trip Started ✓", color: "text-hy3n-green bg-hy3n-green/10", dot: "bg-hy3n-green", pulse: true },
-  "completed":   { label: "Completed", color: "text-muted-foreground bg-white/5", dot: "bg-muted-foreground", pulse: false },
-  "cancelled":   { label: "Cancelled", color: "text-hy3n-red bg-hy3n-red/10", dot: "bg-hy3n-red", pulse: false },
+  searching: { label: "Waiting for Driver", color: "text-blue-400 bg-blue-400/10", dot: "bg-blue-400" },
+  matched: { label: "Driver Assigned", color: "text-purple-400 bg-purple-400/10", dot: "bg-purple-400" },
+  driver_arriving: { label: "Driver Arriving", color: "text-amber-300 bg-amber-300/10", dot: "bg-amber-300" },
+  driver_arrived: { label: "Driver Arrived", color: "text-amber-300 bg-amber-300/10", dot: "bg-amber-300" },
+  in_progress: { label: "Trip Started", color: "text-hy3n-green bg-hy3n-green/10", dot: "bg-hy3n-green" },
+  completed: { label: "Completed", color: "text-muted-foreground bg-white/5", dot: "bg-muted-foreground" },
+  cancelled: { label: "Cancelled", color: "text-hy3n-red bg-hy3n-red/10", dot: "bg-hy3n-red" },
 };
 
 export default function LiveRides() {
-  const [rides, setRides] = useState([]);
+  const [rides, setRides] = useState({ active: [], recent: [] });
   const [loading, setLoading] = useState(true);
-  const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [dispatchRide, setDispatchRide] = useState(null);
+  const [error, setError] = useState("");
+  const [lastRefresh, setLastRefresh] = useState(null);
 
-  const fetchRides = () => {
-    setLoading(true);
-    firebaseClient.entities.Ride.list("-updated_date", 200).then(data => {
-      setRides(data);
-      setLoading(false);
-      setLastRefresh(new Date());
-    });
+  const fetchRides = async () => {
+    setLoading(true); setError("");
+    try { setRides(await adminApi.liveRides()); setLastRefresh(new Date()); }
+    catch (err) { setError(err.message || "Live rides could not be loaded."); }
+    finally { setLoading(false); }
   };
+  useEffect(() => { fetchRides(); const interval = setInterval(fetchRides, 30000); return () => clearInterval(interval); }, []);
 
-  useEffect(() => {
-    fetchRides();
-    const interval = setInterval(fetchRides, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  const active = rides.active || [];
+  const recent = rides.recent || [];
+  const stats = useMemo(() => ({
+    waiting: active.filter((ride) => ride.status === "searching").length,
+    assigned: active.filter((ride) => ["matched", "driver_arriving", "driver_arrived"].includes(ride.status)).length,
+    started: active.filter((ride) => ride.status === "in_progress").length,
+  }), [active]);
 
-  const active = rides.filter(r => {
-    if (!["searching", "matched", "in_progress"].includes(r.status)) return false;
-    
-    // Auto-expire "searching" (waiting) rides after 2 hours
-    const createdAt = r.created_at?.toDate ? r.created_at.toDate() : (r.created_at || r.created_date);
-    if (r.status === "searching" && createdAt) {
-      const ageHours = (new Date() - new Date(createdAt)) / (1000 * 60 * 60);
-      if (ageHours > 2) return false;
-    }
-    return true;
-  });
-  const tripStarted = active.filter(r => r.status === "in_progress");
-  const waiting = active.filter(r => r.status === "searching");
-  const accepted = active.filter(r => r.status === "matched");
-
-  const updateRideStatus = async (ride, status) => {
-    await firebaseClient.entities.Ride.update(ride.id, { status });
-    fetchRides();
-  };
-
-  return (
-    <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Live Rides</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {active.length} active rides · refreshes every 30s · last: {lastRefresh.toLocaleTimeString()}
-          </p>
-        </div>
-        <button onClick={fetchRides} disabled={loading}
-          className="flex items-center gap-2 border border-hy3n-border text-muted-foreground hover:text-white hover:border-hy3n-gold/40 px-4 py-2.5 rounded-xl text-sm transition-colors disabled:opacity-50">
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh
-        </button>
-      </div>
-
-      {/* Live stats */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse" />
-            <p className="text-xs text-muted-foreground">Waiting</p>
-          </div>
-          <p className="text-3xl font-bold text-blue-400">{waiting.length}</p>
-        </div>
-        <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
-            <p className="text-xs text-muted-foreground">Accepted</p>
-          </div>
-          <p className="text-3xl font-bold text-purple-400">{accepted.length}</p>
-        </div>
-        <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-4 text-center">
-          <div className="flex items-center justify-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-hy3n-green animate-pulse" />
-            <p className="text-xs text-muted-foreground">Trip Started</p>
-          </div>
-          <p className="text-3xl font-bold text-hy3n-green">{tripStarted.length}</p>
-        </div>
-      </div>
-
-      {/* Map */}
-      <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl overflow-hidden" style={{ height: 420 }}>
-        <div className="px-5 py-3 border-b border-hy3n-border flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white">Live Map</h2>
-          <span className="text-xs text-muted-foreground">{active.length} active rides shown</span>
-        </div>
-        <div style={{ height: 374 }}>
-          <LiveMap rides={active} />
-        </div>
-      </div>
-
-      {/* Active ride cards */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Active Rides ({active.length})</h2>
-        {loading && active.length === 0 ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="w-7 h-7 border-4 border-hy3n-gold/30 border-t-hy3n-gold rounded-full animate-spin" />
-          </div>
-        ) : active.length === 0 ? (
-          <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl py-16 text-center text-muted-foreground">
-            No active rides right now
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {active.map(ride => {
-              const cfg = tripStatusConfig[ride.status];
-              return (
-                <div key={ride.id} className={`bg-hy3n-surface rounded-2xl p-5 border transition-colors ${
-                  ride.status === "in_progress" ? "border-hy3n-green/40" :
-                  ride.status === "matched" ? "border-purple-400/30" : "border-hy3n-border"
-                }`}>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dot} ${cfg.pulse ? "animate-pulse" : ""}`} />
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                    </div>
-                    {(ride.fare_estimate || ride.fare) && <span className="text-white font-bold text-sm">GHS {ride.fare_estimate || ride.fare}</span>}
-                  </div>
-
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-start gap-2 text-xs">
-                      <MapPin size={12} className="text-hy3n-green mt-0.5 flex-shrink-0" />
-                      <span className="text-white truncate">{ride.pickup_address || ride.pickup_location || "—"}</span>
-                    </div>
-                    <div className="flex items-start gap-2 text-xs">
-                      <Navigation size={12} className="text-hy3n-red mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground truncate">{ride.destination_address || ride.dropoff_location || "—"}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-xs mb-4">
-                    <div className="bg-white/5 rounded-lg px-3 py-2">
-                      <p className="text-muted-foreground">Rider</p>
-                      <p className="text-white font-medium mt-0.5 truncate">{ride.rider_name || "—"}</p>
-                    </div>
-                    <div className="bg-white/5 rounded-lg px-3 py-2">
-                      <p className="text-muted-foreground">Driver</p>
-                      <p className="text-white font-medium mt-0.5 truncate">{ride.driver_name || "Not Assigned"}</p>
-                    </div>
-                    {ride.vehicle_type && (
-                      <div className="bg-white/5 rounded-lg px-3 py-2">
-                        <p className="text-muted-foreground">Vehicle</p>
-                        <p className="text-white font-medium mt-0.5">{ride.vehicle_type}</p>
-                      </div>
-                    )}
-                    {ride.payment_method && (
-                      <div className="bg-white/5 rounded-lg px-3 py-2">
-                        <p className="text-muted-foreground">Payment</p>
-                        <p className="text-white font-medium mt-0.5">{ride.payment_method}</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Admin actions */}
-                  <div className="flex gap-2 flex-wrap">
-                    {ride.status === "searching" && (
-                      <button onClick={() => setDispatchRide(ride)}
-                        className="text-xs text-hy3n-gold border border-hy3n-gold/30 hover:bg-hy3n-gold/10 px-2 py-1 rounded-lg transition-colors flex items-center gap-1">
-                        ⚡ Dispatch
-                      </button>
-                    )}
-                    {ride.status !== "completed" && (
-                      <button onClick={() => updateRideStatus(ride, "completed")}
-                        className="text-xs text-blue-400 border border-blue-400/30 hover:bg-blue-400/10 px-2 py-1 rounded-lg transition-colors">
-                        Complete
-                      </button>
-                    )}
-                    <button onClick={() => updateRideStatus(ride, "cancelled")}
-                      className="text-xs text-hy3n-red border border-hy3n-red/30 hover:bg-hy3n-red/10 px-2 py-1 rounded-lg transition-colors ml-auto">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Recent completed/cancelled */}
-      <div>
-        <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Recent Completed</h2>
-        <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted-foreground text-xs uppercase tracking-wide border-b border-hy3n-border">
-                  <th className="text-left px-5 py-3">Rider</th>
-                  <th className="text-left px-5 py-3 hidden md:table-cell">Driver</th>
-                  <th className="text-left px-5 py-3">Status</th>
-                  <th className="text-right px-5 py-3">Fare</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rides.filter(r => ["completed","cancelled"].includes(r.status)).slice(0,10).map(ride => {
-                  const cfg = tripStatusConfig[ride.status];
-                  return (
-                    <tr key={ride.id} className="border-b border-hy3n-border/40 hover:bg-white/3 transition-colors">
-                      <td className="px-5 py-3 text-white font-medium">{ride.rider_name}</td>
-                      <td className="px-5 py-3 text-muted-foreground hidden md:table-cell">{ride.driver_name || "—"}</td>
-                      <td className="px-5 py-3">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${cfg.color}`}>{ride.status}</span>
-                      </td>
-                      <td className="px-5 py-3 text-right text-white font-semibold">{(ride.fare_estimate || ride.fare) ? `GHS ${ride.fare_estimate || ride.fare}` : "—"}</td>
-                    </tr>
-                  );
-                })}
-                {rides.filter(r => ["completed","cancelled"].includes(r.status)).length === 0 && (
-                  <tr><td colSpan={4} className="text-center py-8 text-muted-foreground">No completed rides yet</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {dispatchRide && (
-        <DispatchEngine
-          ride={dispatchRide}
-          onClose={() => setDispatchRide(null)}
-          onDispatched={fetchRides}
-        />
-      )}
-    </div>
-  );
+  return <div className="space-y-5">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-bold text-white">Live Rides</h1><p className="mt-0.5 text-sm text-muted-foreground">Protected HY3N operations feed · refreshes every 30 seconds{lastRefresh ? ` · last ${lastRefresh.toLocaleTimeString()}` : ""}</p></div><button onClick={fetchRides} disabled={loading} className="inline-flex items-center gap-2 self-start rounded-xl border border-hy3n-border px-4 py-2.5 text-sm text-white hover:bg-white/5 disabled:opacity-50"><RefreshCw size={15} className={loading ? "animate-spin" : ""} /> Refresh</button></div>
+    {error && <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300"><AlertTriangle size={16} /> {error}</div>}
+    <div className="grid grid-cols-3 gap-3">{[["Waiting", stats.waiting, "bg-blue-400", "text-blue-400"], ["Assigned", stats.assigned, "bg-purple-400", "text-purple-400"], ["Trip Started", stats.started, "bg-hy3n-green", "text-hy3n-green"]].map(([label, count, dot, text]) => <div key={label} className="rounded-2xl border border-hy3n-border bg-hy3n-surface p-4 text-center"><div className="mb-1 flex items-center justify-center gap-2"><span className={`h-2 w-2 rounded-full ${dot}`} /><p className="text-xs text-muted-foreground">{label}</p></div><p className={`text-3xl font-bold ${text}`}>{count}</p></div>)}</div>
+    <section className="overflow-hidden rounded-2xl border border-hy3n-border bg-hy3n-surface"><header className="flex items-center justify-between border-b border-hy3n-border px-5 py-3"><h2 className="text-sm font-semibold text-white">Live Map</h2><span className="text-xs text-muted-foreground">{active.length} active rides shown · no browser map key required</span></header><div style={{ height: 374 }}><LiveMap rides={active} /></div></section>
+    <section><h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Active rides ({active.length})</h2>{loading && !active.length ? <div className="flex h-48 items-center justify-center"><div className="h-7 w-7 animate-spin rounded-full border-4 border-hy3n-gold/30 border-t-hy3n-gold" /></div> : !active.length ? <div className="rounded-2xl border border-hy3n-border bg-hy3n-surface py-16 text-center text-sm text-muted-foreground">No active rides right now</div> : <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{active.map((ride) => { const config = tripStatusConfig[ride.status] || tripStatusConfig.searching; return <article key={ride.id} className="rounded-2xl border border-hy3n-border bg-hy3n-surface p-5"><div className="mb-4 flex items-start justify-between gap-3"><span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${config.color}`}><Circle size={8} className={config.dot} fill="currentColor" />{config.label}</span>{ride.fare && <span className="text-sm font-bold text-white">GH₵{ride.fare.toFixed(2)}</span>}</div><div className="space-y-3 text-xs"><div className="flex gap-2"><MapPin size={14} className="mt-0.5 shrink-0 text-hy3n-green" /><div><p className="text-muted-foreground">Pickup</p><p className="mt-0.5 text-white">{ride.pickup_address || "Location unavailable"}</p></div></div><div className="flex gap-2"><Navigation size={14} className="mt-0.5 shrink-0 text-hy3n-red" /><div><p className="text-muted-foreground">Destination</p><p className="mt-0.5 text-white">{ride.destination_address || "Location unavailable"}</p></div></div></div><div className="mt-4 grid grid-cols-2 gap-2 text-xs"><div className="rounded-lg bg-white/5 px-3 py-2"><p className="text-muted-foreground">Rider</p><p className="mt-0.5 truncate text-white">{ride.rider_name}</p></div><div className="rounded-lg bg-white/5 px-3 py-2"><p className="text-muted-foreground">Driver</p><p className="mt-0.5 truncate text-white">{ride.driver_name || "Not assigned"}</p></div></div></article>; })}</div>}</section>
+    <section><h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Recent completed or cancelled rides</h2><div className="overflow-hidden rounded-2xl border border-hy3n-border bg-hy3n-surface"><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="border-b border-hy3n-border text-xs uppercase tracking-wide text-muted-foreground"><tr><th className="px-5 py-3 text-left">Rider</th><th className="hidden px-5 py-3 text-left md:table-cell">Driver</th><th className="px-5 py-3 text-left">Status</th><th className="px-5 py-3 text-right">Fare</th></tr></thead><tbody>{recent.slice(0, 10).map((ride) => { const config = tripStatusConfig[ride.status] || tripStatusConfig.completed; return <tr key={ride.id} className="border-b border-hy3n-border/40 last:border-0"><td className="px-5 py-3 font-medium text-white">{ride.rider_name}</td><td className="hidden px-5 py-3 text-muted-foreground md:table-cell">{ride.driver_name || "—"}</td><td className="px-5 py-3"><span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${config.color}`}>{config.label}</span></td><td className="px-5 py-3 text-right font-semibold text-white">{ride.fare ? `GH₵${ride.fare.toFixed(2)}` : "—"}</td></tr>; })}{!recent.length && <tr><td colSpan={4} className="px-5 py-10 text-center text-muted-foreground">No completed or cancelled rides yet.</td></tr>}</tbody></table></div></div></section>
+  </div>;
 }

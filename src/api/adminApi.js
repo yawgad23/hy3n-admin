@@ -65,4 +65,30 @@ export const adminApi = {
     const suffix = query.toString();
     return request(`/api/admin/driver-fees${suffix ? `?${suffix}` : ""}`);
   },
+
+  settings() {
+    return request("/api/admin/settings");
+  },
+
+  updatePlatformFee(serviceType, amount) {
+    return request(`/api/admin/settings/platform-fees/${encodeURIComponent(serviceType)}`, {
+      method: "PUT",
+      body: JSON.stringify({ amount }),
+    });
+  },
+
+  listAdministratorAccess() {
+    return request("/api/admin/access");
+  },
+
+  updateAdministratorAccess(email, payload) {
+    return request(`/api/admin/access/${encodeURIComponent(email)}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  liveRides() {
+    return request("/api/admin/rides/live");
+  },
 };
