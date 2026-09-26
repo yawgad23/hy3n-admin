@@ -20,7 +20,6 @@ import Analytics from './pages/Analytics';
 import DriverApplications from './pages/DriverApplications';
 import Pricing from './pages/Pricing';
 import Payouts from './pages/Payouts';
-import DriverOnboarding from './pages/DriverOnboarding';
 import Login from './pages/Login';
 import RideReports from './pages/RideReports';
 import SendNotifications from './pages/SendNotifications';
@@ -54,7 +53,6 @@ const AuthenticatedApp = () => {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/apply" element={<DriverOnboarding />} />
       <Route element={<AdminGuard />}>
         <Route element={<AdminLayout />}>
           <Route path="/" element={<Dashboard />} />

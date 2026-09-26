@@ -19,7 +19,6 @@
  *   firebaseClient.auth.isAuthenticated()
  *   firebaseClient.auth.loginViaEmailPassword(email, password)
  *   firebaseClient.auth.loginWithProvider(provider, redirectTo)
- *   firebaseClient.auth.register({ email, password })
  *   firebaseClient.auth.verifyOtp({ email, otpCode })  -- not needed in Firebase (email verification is separate)
  *   firebaseClient.auth.resendOtp(email)
  *   firebaseClient.auth.setToken(token)
@@ -40,7 +39,6 @@ import { initializeApp } from 'firebase/app';
 import {
   getAuth,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
   sendPasswordResetEmail,
   GoogleAuthProvider,
@@ -455,33 +453,12 @@ const authAPI = {
   },
 
   /**
-   * Register a new user with email and password.
-   * Firebase sends a verification email automatically if configured.
-   * Creates the Firebase Auth account directly.
-   */
-  async register({ email, password }) {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    // Send email verification
-    try {
-      const { sendEmailVerification } = await import('firebase/auth');
-      await sendEmailVerification(cred.user);
-    } catch (e) {
-      // Non-fatal
-    }
-    return {
-      id: cred.user.uid,
-      email: cred.user.email,
-    };
-  },
-
-  /**
    * Verify OTP — in Firebase, email verification is handled via a link
    * sent by Firebase, not a 6-digit code. This is a no-op stub that
    * simulates success so the UI flow continues.
    *
-   * NOTE: The apps call verifyOtp after register. Since Firebase handles
-   * email verification separately, we just return a success response here.
-   * The user is already signed in after createUserWithEmailAndPassword.
+   * This legacy compatibility method only returns the token of an existing
+   * authenticated user. Administrator accounts are created server-side.
    */
   async verifyOtp({ email, otpCode }) {
     // User is already signed in; just return a fake token
