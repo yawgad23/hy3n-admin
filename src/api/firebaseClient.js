@@ -98,10 +98,18 @@ const storage = getStorage(app);
 export function waitForAuthUser() {
   if (auth.currentUser) return Promise.resolve(auth.currentUser);
   return new Promise((resolve) => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    let unsubscribe = () => {};
+    let settled = false;
+    const resolveOnce = (user) => {
+      if (settled) return;
+      settled = true;
       unsubscribe();
       resolve(user || null);
-    });
+    };
+    unsubscribe = onAuthStateChanged(auth, resolveOnce);
+    // Firebase may invoke the initial observer synchronously when it already
+    // has a persisted session. Clean that observer up after assignment too.
+    if (settled) unsubscribe();
   });
 }
 
