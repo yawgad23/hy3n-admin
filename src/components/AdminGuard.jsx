@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { firebaseClient } from "@/api/firebaseClient";
+import { firebaseClient, onAuthStateChange } from "@/api/firebaseClient";
 import { adminApi } from "@/api/adminApi";
 import { AlertTriangle, LogOut, Shield } from "lucide-react";
 import AdminAccessCodeGate from "@/components/AdminAccessCodeGate";
@@ -17,33 +17,35 @@ export default function AdminGuard() {
   useEffect(() => {
     let active = true;
 
-    async function checkAccess() {
+    // Firebase restores a persisted sign-in asynchronously. Its observer is
+    // the authoritative point at which auth.currentUser is available, so the
+    // protected API never receives a premature empty token after a reload.
+    const unsubscribe = onAuthStateChange(async (firebaseUser) => {
+      if (!firebaseUser) {
+        if (active) setStatus("unauthenticated");
+        return;
+      }
+
+      if (active) {
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+          full_name: firebaseUser.displayName || "",
+        });
+      }
+
       try {
-        const authenticated = await firebaseClient.auth.isAuthenticated();
-        if (!authenticated) {
-          if (active) setStatus("unauthenticated");
-          return;
-        }
-
-        const currentUser = await firebaseClient.auth.me();
-        if (!active) return;
-        setUser(currentUser);
-
-        // The session check validates Firebase identity and the server-side
-        // admin_access record, then reports whether this browser has a valid
-        // short-lived proof of the administrator access code.
         const session = await adminApi.session();
         if (active) setStatus(session.accessGranted ? "admin" : "code");
       } catch {
         if (active) setStatus("denied");
       }
-    }
-
-    checkAccess();
+    });
     const requireCode = () => { if (active) setStatus("code"); };
     window.addEventListener("hy3n:admin-access-code-required", requireCode);
     return () => {
       active = false;
+      unsubscribe();
       window.removeEventListener("hy3n:admin-access-code-required", requireCode);
     };
   }, []);

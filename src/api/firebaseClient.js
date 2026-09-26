@@ -90,29 +90,6 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-/**
- * Firebase restores persisted sign-in state asynchronously after a full page
- * load. Dashboard API calls must wait for that restoration instead of reading
- * auth.currentUser during its short initial null state.
- */
-export function waitForAuthUser() {
-  if (auth.currentUser) return Promise.resolve(auth.currentUser);
-  return new Promise((resolve) => {
-    let unsubscribe = () => {};
-    let settled = false;
-    const resolveOnce = (user) => {
-      if (settled) return;
-      settled = true;
-      unsubscribe();
-      resolve(user || null);
-    };
-    unsubscribe = onAuthStateChanged(auth, resolveOnce);
-    // Firebase may invoke the initial observer synchronously when it already
-    // has a persisted session. Clean that observer up after assignment too.
-    if (settled) unsubscribe();
-  });
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function normalizeData(data) {
@@ -407,7 +384,7 @@ for (const [entityName, collectionName] of Object.entries(ENTITY_COLLECTIONS)) {
  * User fields: id, email, full_name, role
  */
 async function getCurrentUser() {
-  const firebaseUser = await waitForAuthUser();
+  const firebaseUser = auth.currentUser;
   if (!firebaseUser) return null;
   return {
     id: firebaseUser.uid,
@@ -431,7 +408,7 @@ const authAPI = {
    * Returns true if a user is currently signed in.
    */
   async isAuthenticated() {
-    return Boolean(await waitForAuthUser());
+    return auth.currentUser !== null;
   },
 
   /**

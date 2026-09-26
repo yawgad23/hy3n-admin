@@ -1,4 +1,4 @@
-import { waitForAuthUser } from "@/api/firebaseClient";
+import { auth } from "@/api/firebaseClient";
 
 const API_BASE_URL = (
   import.meta.env.VITE_ADMIN_API_BASE_URL || "https://api-yvurtipaxq-ew.a.run.app"
@@ -14,7 +14,7 @@ function clearAccessProof() {
 }
 
 async function request(path, options = {}) {
-  const user = await waitForAuthUser();
+  const user = auth.currentUser;
   if (!user) throw new Error("Sign in with an administrator account first.");
 
   const token = await user.getIdToken();
