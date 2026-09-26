@@ -111,23 +111,6 @@ async function startServer() {
     res.json({ status: "ready", webhook: "/api/hubtel/callback" });
   });
 
-  // Admin commission dashboard (served as static HTML)
-  app.get("/admin/commission", (_req, res) => {
-    const path = require("path");
-    res.sendFile(path.join(__dirname, "../../server/admin-commission.html"));
-  });
-
-  // Admin PIN verification endpoint — PIN stored server-side as ADMIN_DASHBOARD_PIN env var
-  app.post("/api/admin/verify-pin", (req, res) => {
-    const { pin } = req.body as { pin?: string };
-    const adminPin = process.env.ADMIN_DASHBOARD_PIN || "5809";
-    if (!pin || pin !== adminPin) {
-      res.status(401).json({ ok: false, error: "Invalid PIN" });
-      return;
-    }
-    res.json({ ok: true });
-  });
-
   app.use(
     "/api/trpc",
     createExpressMiddleware({

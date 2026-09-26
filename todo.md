@@ -138,7 +138,7 @@
 - [x] Creates RideReport doc for found items
 
 ### Commission Gate
-- [x] Real MoMo number: 0546728330
+- [x] Driver fees are initiated and confirmed through Hubtel only
 - [x] Vehicle-type-based fees: GH₵50 (car), GH₵30 (okada/delivery)
 
 ## New Features (Jun 17)
@@ -322,33 +322,10 @@
 
 - [x] Server: `POST /api/hubtel/callback` webhook endpoint to receive Hubtel payment confirmations
 - [x] Webhook: verify Hubtel signature and update commission record from `processing` → `paid`/`failed`
-- [x] Admin dashboard: list all drivers' daily commissions with status (paid/processing/failed)
-- [x] Admin dashboard: manual override button to mark commission as paid or failed
-- [x] Admin dashboard: filter by date range and driver name
-- [x] tRPC endpoints: `commission.listForAdmin` and `commission.overrideStatus` (placeholder, needs admin auth)
-
-## Admin Auth & Dashboard Wiring (Jun 18)
-
-- [ ] Fix server-side Firebase import (hubtelWebhook.ts imports react-native via lib/firebase.ts)
-- [ ] Create server/firebaseAdmin.ts using firebase-admin SDK (no React Native dependency)
-- [ ] Add admin auth middleware to tRPC context (verify Firebase ID token + admin claim)
-- [ ] Implement commission.listForAdmin with real Firestore query via firebase-admin
-- [ ] Implement commission.overrideStatus with real Firestore update via firebase-admin
-- [ ] Wire admin-commission.html to tRPC API (fetch commissions, execute overrides)
-- [ ] Add admin login gate to admin-commission.html (Firebase Auth web SDK)
-
-## Commission Flow Fix (Jun 18)
-
-- [x] CommissionGate: check for 'paid' status in addition to 'confirmed'
-- [x] Driver home: add midnight reset logic to clear daily commission at 00:00
-- [ ] Admin dashboard: wire to real tRPC API (fetch commissions, execute overrides)
-
-## Admin Dashboard Wiring (Jun 18)
-
-- [x] Wire admin-commission.html to real tRPC API (commission.listForAdmin, commission.overrideStatus)
-- [x] Add admin PIN login gate to dashboard (PIN verified server-side via /api/admin/verify-pin)
-- [x] Show live stats: total/paid/processing/failed counts + GH₵ revenue collected
-- [x] Override modal calls real overrideStatus mutation with reason field
+- [x] Protected admin dashboard: list Hubtel Driver fees with paid/processing/failed status
+- [x] Protected admin dashboard: filter by date range, status, or Driver/Hubtel reference
+- [x] Dashboard ledger is read-only; no manual MoMo number, receipt, or paid-status override exists
+- [x] Dashboard access is verified by Firebase ID token and the server-side administrator record
 
 ## Wallet System (Jun 18)
 

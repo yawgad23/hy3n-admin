@@ -8,15 +8,8 @@
  *
  * Auth: Basic base64(API_ID:API_KEY)
  *
- * POS Sales Number: 5809 (from bo.hubtel.com/money)
- * API ID:  9glAYO8
- * API Key: 08910e8a08234a2aa98a756776f60a8f
- *
- * IMPORTANT: The "Receive Money" scope must be enabled on the API key by Hubtel.
- * Email retail@hubtel.com to request this scope. Also provide your server IP for whitelisting.
- *
- * Commission rates:
- *   - All drivers: GH₵1/day
+ * Credentials are supplied only as server environment variables. They are never
+ * embedded in source code, browser bundles, logs, or Git history going forward.
  */
 
 export interface HubtelChargeRequest {
@@ -45,12 +38,16 @@ export interface HubtelChargeResponse {
   raw?: any;
 }
 
-const HUBTEL_POS_NUMBER = process.env.HUBTEL_POS_NUMBER || '5809';
-const HUBTEL_API_ID = process.env.HUBTEL_API_ID || '9glAYO8';
-const HUBTEL_API_KEY = process.env.HUBTEL_API_KEY || '08910e8a08234a2aa98a756776f60a8f';
+function hubtelConfiguration() {
+  const posNumber = String(process.env.HUBTEL_POS_NUMBER || '').trim();
+  const apiId = String(process.env.HUBTEL_API_ID || '').trim();
+  const apiKey = String(process.env.HUBTEL_API_KEY || '').trim();
+  if (!posNumber || !apiId || !apiKey) return null;
+  return { posNumber, apiId, apiKey };
+}
 
-function getBasicAuth(): string {
-  const credentials = `${HUBTEL_API_ID}:${HUBTEL_API_KEY}`;
+function getBasicAuth(apiId: string, apiKey: string): string {
+  const credentials = `${apiId}:${apiKey}`;
   return 'Basic ' + Buffer.from(credentials).toString('base64');
 }
 
@@ -59,7 +56,15 @@ function getBasicAuth(): string {
  * The driver receives a USSD prompt on their phone to approve the payment.
  */
 export async function chargeDriverCommission(req: HubtelChargeRequest): Promise<HubtelChargeResponse> {
-  const url = `https://rmp.hubtel.com/merchantaccount/merchants/${HUBTEL_POS_NUMBER}/receive/mobilemoney`;
+  const config = hubtelConfiguration();
+  if (!config) {
+    return {
+      success: false,
+      status: 'failed',
+      message: 'Hubtel Direct Receive Money is not configured on this server.',
+    };
+  }
+  const url = `https://rmp.hubtel.com/merchantaccount/merchants/${config.posNumber}/receive/mobilemoney`;
 
   const body = {
     CustomerMsisdn: req.customerMsisdn,
@@ -75,7 +80,7 @@ export async function chargeDriverCommission(req: HubtelChargeRequest): Promise<
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': getBasicAuth(),
+        'Authorization': getBasicAuth(config.apiId, config.apiKey),
         'Cache-Control': 'no-cache',
       },
       body: JSON.stringify(body),
@@ -123,7 +128,8 @@ export async function chargeDriverCommission(req: HubtelChargeRequest): Promise<
  * Determine commission amount based on driver service type.
  */
 export function getCommissionAmount(serviceType: string): number {
-  return 1; // All drivers: 1/day
+  const configured = Number(process.env.HUBTEL_DRIVER_FEE_AMOUNT);
+  return Number.isFinite(configured) && configured > 0 ? configured : 50;
 }
 
 /**

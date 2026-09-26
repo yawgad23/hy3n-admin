@@ -224,30 +224,6 @@ export const appRouter = router({
         return { commissions: enriched };
       }),
 
-    /**
-     * Admin: Override a commission status manually.
-     * Requires admin role (ctx.user.role === 'admin').
-     */
-    overrideStatus: adminProcedure
-      .input(z.object({
-        commissionId: z.string(),
-        newStatus: z.enum(['paid', 'failed', 'processing']),
-        reason: z.string().optional(),
-      }))
-      .mutation(async ({ input, ctx }) => {
-        const updated = await adminFirestore.update(
-          ADMIN_COLLECTIONS.DAILY_COMMISSION,
-          input.commissionId,
-          {
-            status: input.newStatus,
-            admin_override: true,
-            admin_override_reason: input.reason || 'Manual admin override',
-            admin_override_by: ctx.user?.openId || 'admin',
-            admin_override_at: new Date().toISOString(),
-          },
-        );
-        return { success: true, commission: updated };
-      }),
   }),
 
   // ─── Rider / Driver Wallet ────────────────────────────────────────────────────────────────
