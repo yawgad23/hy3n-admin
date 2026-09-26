@@ -3,14 +3,15 @@ import { Navigate, Outlet } from "react-router-dom";
 import { firebaseClient } from "@/api/firebaseClient";
 import { adminApi } from "@/api/adminApi";
 import { AlertTriangle, LogOut, Shield } from "lucide-react";
+import AdminAccessCodeGate from "@/components/AdminAccessCodeGate";
 
 /**
  * The trusted Cloud Run API verifies the signed Firebase ID token and the
- * server-side administrator record. No browser-embedded email whitelist,
- * fallback PIN, or static access code can grant dashboard access.
+ * server-side administrator record, then a short-lived server-signed access
+ * code proof. Neither factor can grant access by itself.
  */
 export default function AdminGuard() {
-  const [status, setStatus] = useState("loading"); // loading | admin | denied | unauthenticated
+  const [status, setStatus] = useState("loading"); // loading | code | admin | denied | unauthenticated
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -28,21 +29,28 @@ export default function AdminGuard() {
         if (!active) return;
         setUser(currentUser);
 
-        // Any secure admin endpoint performs the same server-side Firebase
-        // token + admin_access validation used by all account operations.
-        await adminApi.listAccounts("driver");
-        if (active) setStatus("admin");
+        // The session check validates Firebase identity and the server-side
+        // admin_access record, then reports whether this browser has a valid
+        // short-lived proof of the administrator access code.
+        const session = await adminApi.session();
+        if (active) setStatus(session.accessGranted ? "admin" : "code");
       } catch {
         if (active) setStatus("denied");
       }
     }
 
     checkAccess();
-    return () => { active = false; };
+    const requireCode = () => { if (active) setStatus("code"); };
+    window.addEventListener("hy3n:admin-access-code-required", requireCode);
+    return () => {
+      active = false;
+      window.removeEventListener("hy3n:admin-access-code-required", requireCode);
+    };
   }, []);
 
   const handleLogout = async () => {
     sessionStorage.clear();
+    adminApi.clearAccessCode();
     await firebaseClient.auth.logout("/login");
   };
 
@@ -55,6 +63,10 @@ export default function AdminGuard() {
   }
 
   if (status === "unauthenticated") return <Navigate to="/login" replace />;
+
+  if (status === "code") {
+    return <AdminAccessCodeGate verify={adminApi.verifyAccessCode} onVerified={() => setStatus("admin")} />;
+  }
 
   if (status === "denied") {
     return (

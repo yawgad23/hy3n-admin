@@ -3,6 +3,15 @@ import { auth } from "@/api/firebaseClient";
 const API_BASE_URL = (
   import.meta.env.VITE_ADMIN_API_BASE_URL || "https://api-yvurtipaxq-ew.a.run.app"
 ).replace(/\/$/, "");
+const ACCESS_PROOF_KEY = "hy3n_admin_access_proof";
+
+function accessProof() {
+  return sessionStorage.getItem(ACCESS_PROOF_KEY) || "";
+}
+
+function clearAccessProof() {
+  sessionStorage.removeItem(ACCESS_PROOF_KEY);
+}
 
 async function request(path, options = {}) {
   const user = auth.currentUser;
@@ -13,6 +22,7 @@ async function request(path, options = {}) {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
+      ...(accessProof() ? { "X-HY3N-Admin-Access": accessProof() } : {}),
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.headers || {}),
     },
@@ -20,12 +30,34 @@ async function request(path, options = {}) {
 
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (body.code === "ADMIN_ACCESS_CODE_REQUIRED") {
+      clearAccessProof();
+      window.dispatchEvent(new Event("hy3n:admin-access-code-required"));
+    }
     throw new Error(body.error || "The administrator request could not be completed.");
   }
   return body;
 }
 
 export const adminApi = {
+  session() {
+    return request("/api/admin/session");
+  },
+
+  async verifyAccessCode(accessCode) {
+    const result = await request("/api/admin/access-code/verify", {
+      method: "POST",
+      body: JSON.stringify({ accessCode }),
+    });
+    if (!result.accessProof) throw new Error("The administrator access code could not be verified.");
+    sessionStorage.setItem(ACCESS_PROOF_KEY, result.accessProof);
+    return result;
+  },
+
+  clearAccessCode() {
+    clearAccessProof();
+  },
+
   listAccounts(role) {
     return request(`/api/admin/accounts?role=${encodeURIComponent(role)}`);
   },
