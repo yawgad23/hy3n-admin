@@ -27,7 +27,10 @@ export default function LiveMap({ rides = [] }) {
 
   return <div className="relative h-full w-full overflow-hidden bg-hy3n-bg">
     <MapContainer center={[7.9465, -1.0232]} zoom={7} style={{ height: "100%", width: "100%", background: "#1a1a1a" }} zoomControl={false}>
-      <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="&copy; CARTO" />
+      <TileLayer
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution="&copy; OpenStreetMap contributors"
+      />
       <ZoomControl position="bottomright" />
       {allPoints.length > 0 && <FitBounds points={allPoints} />}
       {rideCoords.map(({ ride, pickup, dropoff }) => <div key={ride.id}>
