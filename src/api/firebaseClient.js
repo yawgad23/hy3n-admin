@@ -593,44 +593,11 @@ const integrationsAPI = {
       }
     },
 
-    /**
-     * Invoke an LLM via OpenAI API (using the sandbox's pre-configured key).
-     * Signature: InvokeLLM({ prompt, response_json_schema }) → result
-     */
-    async InvokeLLM({ prompt, response_json_schema }) {
-      try {
-        const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-        if (!apiKey) {
-          console.warn('[Firebase] InvokeLLM: VITE_OPENAI_API_KEY not set');
-          return null;
-        }
-        const messages = [{ role: 'user', content: prompt }];
-        const body = {
-          model: 'gpt-4o-mini',
-          messages,
-        };
-        if (response_json_schema) {
-          body.response_format = { type: 'json_object' };
-          body.messages[0].content += '\n\nRespond with valid JSON only.';
-        }
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-          },
-          body: JSON.stringify(body),
-        });
-        const json = await res.json();
-        const content = json.choices?.[0]?.message?.content;
-        if (response_json_schema && content) {
-          return JSON.parse(content);
-        }
-        return content;
-      } catch (err) {
-        console.error('[Firebase] InvokeLLM error:', err);
-        return null;
-      }
+    // AI features must be implemented through an authenticated backend route
+    // with strict input validation. Never accept arbitrary prompts or model
+    // credentials in the browser bundle.
+    async InvokeLLM() {
+      throw new Error('Browser-side AI is disabled for security.');
     },
   },
 };
