@@ -96,6 +96,10 @@ export const adminApi = {
     });
   },
 
+  accountLifecycle(userId, role) {
+    return request(`/api/admin/accounts/${encodeURIComponent(userId)}/lifecycle?role=${encodeURIComponent(role)}`);
+  },
+
   driverFees(filters = {}) {
     const query = new URLSearchParams();
     if (filters.dateFrom) query.set("dateFrom", filters.dateFrom);
