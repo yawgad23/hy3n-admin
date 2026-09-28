@@ -117,16 +117,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAccount = async () => {
     if (!user) return;
-    try {
-      // Delete rider profile from Firestore if it exists
-      if (riderProfile?.id) {
-        await firestoreDB.delete(COLLECTIONS.RIDER_PROFILES, riderProfile.id);
-      }
-    } catch (err) {
-      console.error('Error deleting profile:', err);
-    }
-    // Delete Firebase Auth account
-    await firebaseAuth.deleteAccount();
+    // This legacy, unreferenced helper must never erase a Firebase account or
+    // profile. The deployed mobile apps use the protected backend deactivation
+    // endpoint, which retains safety and transaction records for review.
+    await firebaseAuth.logout();
     setUser(null);
     setRiderProfile(null);
     setGuestMode(false);

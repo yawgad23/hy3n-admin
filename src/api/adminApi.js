@@ -89,6 +89,13 @@ export const adminApi = {
     });
   },
 
+  deactivateAccount(userId, role) {
+    return request(`/api/admin/accounts/${encodeURIComponent(userId)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ role, status: "inactive" }),
+    });
+  },
+
   driverFees(filters = {}) {
     const query = new URLSearchParams();
     if (filters.dateFrom) query.set("dateFrom", filters.dateFrom);

@@ -19,7 +19,6 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   updateProfile,
-  deleteUser,
   type User,
 } from 'firebase/auth';
 import { Platform } from 'react-native';
@@ -144,11 +143,6 @@ export const firebaseAuth = {
     return onAuthStateChanged(auth, callback);
   },
 
-  async deleteAccount() {
-    const currentUser = auth.currentUser;
-    if (!currentUser) throw new Error('No user logged in');
-    await deleteUser(currentUser);
-  },
 };
 
 // ─── Firestore Helpers ────────────────────────────────────────────────────────
