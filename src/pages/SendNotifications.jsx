@@ -4,136 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { firebaseClient } from "@/api/firebaseClient";
+import { adminApi } from "@/api/adminApi";
 import { useQuery } from "@tanstack/react-query";
 import {
   Bell, Tag, TrendingDown, Gift, AlertTriangle, Megaphone,
   Send, Users, CheckCircle2, Clock, Loader2
 } from "lucide-react";
-
-// Service account credentials for FCM v1 API
-const SA_CLIENT_EMAIL = "firebase-adminsdk-fbsvc@hy3n26.iam.gserviceaccount.com";
-const SA_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
-MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCtJ+4frik6X18I
-TPRxJ77h7gqw7KhOlKfdV1oekf5/lYmKrGOdU/JLfN8KwgxHBZJ1rzCB2mVe/+ae
-i9eJMWQC6NpExlbxaMJ+3om9Ifs+9EJ26S09zPga++bxVS9h1TnNzrEEGHM4zqwd
-cKmwYVksUo+dVLIodgwlZ6YcIcc+Qmk3cLNUmGFfX9wf/wuS9ACtdS954zYEw16z
-wv1mlRHfdANZWz4BoPWBRLV31KxZVCOHrJ7Si/zASEyzPxEfi9cfTvWA9lfpR/cc
-iLp8RfyXn9lB8pS1B6tD/f9jCeBvw5D2wEMX1EFqi/PlR5c5seLH2Ut3MEIPY1Ff
-WmqU05xTAgMBAAECggEAB+ihpljHZp8h3A3dFv4AaJlSwQSje1NW3Mk3QzDaiuvt
-kvk6DjQzW4yh3f/sR6IoL6/cwKbqUmMlyWq3DCZxXEtTt33HotHCGxasUTMoIpai
-zS5BSWf/PQbxuWbGpJVJ7+3XhUmzRDj3ANvlzuSOCh7gkwhh9W8kMYvWY8U3MHoM
-yWnVD9uT2c9y4BlVZ1l5vr2eIzC+U+xr/u+s9cUq5Ws+QIK6Fg0VnwZ3iuXfYLBQ
-vnFAJxVrUrSKAMGUrIXy6xMaBqloqyd9XZSTmf2VZSlzFT/Vllx7YAJK2A6lAE43
-kM57Mu3265M3s7yYaHS63hFsOBQmZkZYn8zve2dcAQKBgQDeO5SfUzShnLbgx1Ow
-GpTenWqcrzV+nrg+jdDHS6rT/cF2pY05Qtz78pHIf1imqgckpyTL3J3FWLghSWNd
-NqDP7gjJI4S/2ilaj2KLxN2ONgEuGwvkUQQrL1GIzegf7/zdMJUPBzqQcXm6VsKk
-eDUjdCoM+lnPFZrtwLWpkBIsgQKBgQDHd1wJmRxGxMXF54hV0wIaodPgmxv3/0tU
-/+NIOfpDXKsNPI73G+LKkTM4HU89zBAYLyfQ4SgNbjBSpLvhOnRBX/fakWBRiiVL
-f2nQ4JX7bmBFxoX53fbO8schbantvsnKxyJO+DZTcyE5iDjgiPHNHQnubGK5PVbo
-gq/DJ/nu0wKBgCNFzackK7xjBVvUB2JyNaLH1X4dCR6ZzqCPHc4kIm8XXbeZOzsV
-c8HBlIYAQG/jmNKmfN6mm5wRItiVr2HCI/Ac1eQm8REKbXnkPD329zt1MubAgDiy
-6zh3gDd4hxlanAX3ihEikpcOi8WZs7crJTQFYg9BRTPrN/X4mlzZcykBAoGBAMJg
-nY845qZMMRLHq0M/iohbdTcm0F2fKlEdv+XtoeUtE/+lKQjD4wFV+BzR6xuklXaL
-1XgnQjm8TFjs8a3tocbnd4hGLR+oyOlGs956TY4kpKq6aGrzlAVd7xGzZWoqh0kV
-P2jHV2GBCzqedhbRPRmOF9SBSL+Nd/jDCfbbKSNDAoGAax9rReeK0nTFliMEWlGG
-8Gx6FW/IoTkQ3cYG4wqIIZM5haB2ikRZV4Lq/VBfkUGm4Q+l8sc4frMQVCbsdG8f
-myNrbjZKUIlvYkanjCn0v6ibwJh213sSVeCNJA1XCW4epMowYLG2Dk5h9Bd71Xyv
-pGviHAWZz0FGvgwybUWrg+g=
------END PRIVATE KEY-----`;
-const FCM_PROJECT_ID = "hy3n26";
-
-// Helper: base64url encode
-function base64url(data) {
-  const bytes = typeof data === "string"
-    ? new TextEncoder().encode(data)
-    : data;
-  let binary = "";
-  const arr = new Uint8Array(bytes);
-  for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-}
-
-// Helper: import RSA private key from PEM
-async function importPrivateKey(pem) {
-  const pemBody = pem
-    .replace("-----BEGIN PRIVATE KEY-----", "")
-    .replace("-----END PRIVATE KEY-----", "")
-    .replace(/\s/g, "");
-  const binaryDer = Uint8Array.from(atob(pemBody), c => c.charCodeAt(0));
-  return crypto.subtle.importKey(
-    "pkcs8",
-    binaryDer.buffer,
-    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-}
-
-// Get a short-lived OAuth2 access token using service account JWT
-async function getAccessToken() {
-  const now = Math.floor(Date.now() / 1000);
-  const header = base64url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
-  const payload = base64url(JSON.stringify({
-    iss: SA_CLIENT_EMAIL,
-    scope: "https://www.googleapis.com/auth/firebase.messaging",
-    aud: "https://oauth2.googleapis.com/token",
-    iat: now,
-    exp: now + 3600,
-  }));
-  const signingInput = `${header}.${payload}`;
-  const key = await importPrivateKey(SA_PRIVATE_KEY);
-  const signature = await crypto.subtle.sign(
-    "RSASSA-PKCS1-v1_5",
-    key,
-    new TextEncoder().encode(signingInput)
-  );
-  const jwt = `${signingInput}.${base64url(new Uint8Array(signature))}`;
-
-  const resp = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
-  });
-  const data = await resp.json();
-  if (!data.access_token) throw new Error(data.error_description || "Failed to get access token");
-  return data.access_token;
-}
-
-// Send FCM notification to a single token
-async function sendFCMMessage(accessToken, fcmToken, title, body) {
-  const resp = await fetch(
-    `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        message: {
-          token: fcmToken,
-          notification: { title, body },
-          webpush: {
-            notification: {
-              title,
-              body,
-              icon: "/icon-192.png",
-              badge: "/icon-192.png",
-              requireInteraction: false,
-            },
-            fcm_options: { link: "https://hy3n-rider.web.app" },
-          },
-        },
-      }),
-    }
-  );
-  if (!resp.ok) {
-    const err = await resp.json();
-    throw new Error(err.error?.message || "FCM send failed");
-  }
-  return resp.json();
-}
 
 const NOTIFICATION_TEMPLATES = [
   {
@@ -178,14 +54,13 @@ export default function SendNotifications() {
   const [result, setResult] = useState(null);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
 
-  // Fetch all riders with FCM tokens
-  const { data: riders = [], isLoading: loadingRiders } = useQuery({
-    queryKey: ["riders-with-tokens"],
-    queryFn: () => firebaseClient.entities.RiderProfile.list(),
+  // The protected backend is the only place that sees device tokens or sends FCM.
+  const { data: notificationOverview, isLoading: loadingRiders, refetch: refreshNotifications } = useQuery({
+    queryKey: ["admin-notifications"],
+    queryFn: () => adminApi.notifications(),
     refetchInterval: 60000,
   });
-
-  const ridersWithTokens = riders.filter(r => r.fcm_token);
+  const ridersWithTokens = notificationOverview?.enabledRiderCount || 0;
 
   const applyTemplate = (template) => {
     setSelectedTemplate(template.id);
@@ -195,57 +70,32 @@ export default function SendNotifications() {
 
   const sendNotification = async () => {
     if (!title.trim() || !body.trim()) return;
-    if (ridersWithTokens.length === 0) {
+    if (ridersWithTokens === 0) {
       setResult({ success: false, message: "No riders with push notifications enabled yet. Riders need to open the app and allow notifications first." });
       return;
     }
 
     setSending(true);
     setResult(null);
-    setSendProgress({ sent: 0, total: ridersWithTokens.length });
-
-    let successCount = 0;
-    let failCount = 0;
+    setSendProgress({ sent: 0, total: ridersWithTokens });
 
     try {
-      // Get OAuth access token using service account
-      const accessToken = await getAccessToken();
-
-      // Send to each rider in batches of 5
-      const batchSize = 5;
-      for (let i = 0; i < ridersWithTokens.length; i += batchSize) {
-        const batch = ridersWithTokens.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map(rider => sendFCMMessage(accessToken, rider.fcm_token, title.trim(), body.trim()))
-        );
-        results.forEach(r => {
-          if (r.status === "fulfilled") successCount++;
-          else failCount++;
-        });
-        setSendProgress({ sent: i + batch.length, total: ridersWithTokens.length });
-      }
-
-      // Save notification record to Firestore
-      await firebaseClient.entities.PushNotification.create({
+      const response = await adminApi.broadcastNotification({
         title: title.trim(),
         body: body.trim(),
         type: selectedTemplate || "general",
-        status: "sent",
-        target: "all_riders",
-        total_recipients: ridersWithTokens.length,
-        sent_count: successCount,
-        failed_count: failCount,
-        created_date: new Date().toISOString(),
-        sent_by: "admin",
       });
+      const { sentCount, failedCount, totalRecipients } = response;
+      setSendProgress({ sent: totalRecipients, total: totalRecipients });
+      await refreshNotifications();
 
       setResult({
-        success: successCount > 0,
-        message: failCount === 0
-          ? `✅ Notification sent to all ${successCount} rider${successCount !== 1 ? "s" : ""} successfully!`
-          : `Sent to ${successCount} rider${successCount !== 1 ? "s" : ""}. ${failCount} failed (tokens may be expired).`,
-        successCount,
-        failCount,
+        success: sentCount > 0,
+        message: failedCount === 0
+          ? `✅ Notification sent to all ${sentCount} rider${sentCount !== 1 ? "s" : ""} successfully!`
+          : `Sent to ${sentCount} rider${sentCount !== 1 ? "s" : ""}. ${failedCount} failed (tokens may be expired).`,
+        successCount: sentCount,
+        failCount: failedCount,
       });
 
       setTitle("");
@@ -259,12 +109,7 @@ export default function SendNotifications() {
     }
   };
 
-  // Notification history
-  const { data: history = [] } = useQuery({
-    queryKey: ["notification-history"],
-    queryFn: () => firebaseClient.entities.PushNotification.list("created_date", 20),
-    refetchInterval: 30000,
-  });
+  const history = notificationOverview?.notifications || [];
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
@@ -282,7 +127,7 @@ export default function SendNotifications() {
         <div className="ml-auto flex items-center gap-2 bg-muted rounded-lg px-3 py-2">
           <Users className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm font-medium">
-            {loadingRiders ? "..." : ridersWithTokens.length} riders with notifications enabled
+            {loadingRiders ? "..." : ridersWithTokens} riders with notifications enabled
           </span>
         </div>
       </div>
@@ -397,18 +242,18 @@ export default function SendNotifications() {
 
               <Button
                 onClick={sendNotification}
-                disabled={sending || !title.trim() || !body.trim()}
+                disabled={sending || ridersWithTokens === 0 || !title.trim() || !body.trim()}
                 className="w-full"
                 size="lg"
               >
                 {sending ? (
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Sending {sendProgress.sent}/{sendProgress.total}...</>
                 ) : (
-                  <><Send className="w-4 h-4 mr-2" /> Send to All {ridersWithTokens.length} Riders</>
+                  <><Send className="w-4 h-4 mr-2" /> Send to All {ridersWithTokens} Riders</>
                 )}
               </Button>
 
-              {ridersWithTokens.length === 0 && !loadingRiders && (
+              {ridersWithTokens === 0 && !loadingRiders && (
                 <p className="text-xs text-muted-foreground text-center">
                   No riders have enabled notifications yet. Riders need to open the app and tap "Allow" on the notification prompt.
                 </p>

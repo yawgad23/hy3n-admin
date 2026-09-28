@@ -123,4 +123,15 @@ export const adminApi = {
   liveRides() {
     return request("/api/admin/rides/live");
   },
+
+  notifications() {
+    return request("/api/admin/notifications");
+  },
+
+  broadcastNotification(payload) {
+    return request("/api/admin/notifications/broadcast", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
 };
