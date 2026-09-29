@@ -120,6 +120,17 @@ export const adminApi = {
     });
   },
 
+  fareRates() {
+    return request('/api/admin/settings/fares');
+  },
+
+  updateFareRate(category, payload) {
+    return request(`/api/admin/settings/fares/${encodeURIComponent(category)}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
   listAdministratorAccess() {
     return request("/api/admin/access");
   },
