@@ -8,6 +8,11 @@ const statusColors = {
   Paid: "text-hy3n-green bg-hy3n-green/10",
 };
 
+function finalDriverEarnings(ride) {
+  const amount = Number(ride.driver_earnings ?? ride.final_fare ?? ride.fare ?? 0);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
 export default function DriverPayoutDetail({ driver, onClose, onUpdated }) {
   const [payouts, setPayouts] = useState([]);
   const [rides, setRides] = useState([]);
@@ -41,7 +46,7 @@ export default function DriverPayoutDetail({ driver, onClose, onUpdated }) {
     onUpdated();
   };
 
-  const totalEarnings = rides.reduce((s, r) => s + (r.fare || 0), 0);
+  const totalEarnings = rides.reduce((s, r) => s + finalDriverEarnings(r), 0);
   const totalPaid = payouts.filter(p => p.status === "Paid").reduce((s, p) => s + (p.net_amount || 0), 0);
   const totalPending = payouts.filter(p => p.status === "Pending").reduce((s, p) => s + (p.net_amount || 0), 0);
 

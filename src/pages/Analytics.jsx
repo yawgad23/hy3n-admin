@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
+import { adminApi } from "@/api/adminApi";
+import RideFinancialLedger from "@/components/RideFinancialLedger";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
 import { TrendingUp, Car, Users, Star } from "lucide-react";
 
@@ -8,13 +10,15 @@ const COLORS = ["#F5A623","#22C55E","#EF4444","#8B5CF6","#3B82F6"];
 export default function Analytics() {
   const [rides, setRides] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [rideFinancials, setRideFinancials] = useState({ summary: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       firebaseClient.entities.Ride.list("-created_date", 500),
       firebaseClient.entities.DriverProfile.list("-created_date", 200),
-    ]).then(([r, d]) => { setRides(r); setDrivers(d); setLoading(false); });
+      adminApi.rideFinancials(),
+    ]).then(([r, d, financials]) => { setRides(r); setDrivers(d); setRideFinancials(financials || { summary: {} }); setLoading(false); });
   }, []);
 
   if (loading) return (
@@ -23,8 +27,9 @@ export default function Analytics() {
     </div>
   );
 
-  const totalRevenue = rides.filter(r => r.status === "completed").reduce((s, r) => s + (r.fare || 0), 0);
-  const avgFare = rides.length ? (totalRevenue / Math.max(rides.filter(r=>r.status==="completed").length, 1)).toFixed(2) : 0;
+  const totalRideCharge = Number(rideFinancials.summary?.totalRideCharge || 0);
+  const completedRides = Number(rideFinancials.summary?.completedRides || 0);
+  const avgFare = completedRides ? (totalRideCharge / completedRides).toFixed(2) : 0;
   const completionRate = rides.length ? ((rides.filter(r => r.status === "completed").length / rides.length) * 100).toFixed(1) : 0;
   const avgRating = rides.filter(r => r.rating).length ? (rides.filter(r=>r.rating).reduce((s,r)=>s+(r.rating||0),0) / rides.filter(r=>r.rating).length).toFixed(1) : "N/A";
 
@@ -81,11 +86,13 @@ export default function Analytics() {
       </div>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-        <StatCard label="Total Revenue" value={`GHS ${totalRevenue.toLocaleString()}`} icon={TrendingUp} color="bg-hy3n-gold" sub="Completed rides" />
-        <StatCard label="Avg Fare" value={`GHS ${avgFare}`} icon={Car} color="bg-hy3n-green" sub="Per completed ride" />
+        <StatCard label="Completed Ride Charges" value={`GHS ${totalRideCharge.toLocaleString()}`} icon={TrendingUp} color="bg-hy3n-gold" sub="Final fares; not payment collection" />
+        <StatCard label="Avg Ride Charge" value={`GHS ${avgFare}`} icon={Car} color="bg-hy3n-green" sub="Per completed ride" />
         <StatCard label="Completion Rate" value={`${completionRate}%`} icon={TrendingUp} color="bg-purple-500" sub={`${rides.length} total rides`} />
         <StatCard label="Avg Rating" value={avgRating} icon={Star} color="bg-hy3n-red" sub="Across all rides" />
       </div>
+
+      <RideFinancialLedger compact />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Rides by Status">

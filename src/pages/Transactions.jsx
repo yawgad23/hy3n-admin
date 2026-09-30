@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
+import RideFinancialLedger from "@/components/RideFinancialLedger";
 import {
   DollarSign, CheckSquare, Wallet, CreditCard, Car, RefreshCw,
   Search, Calendar, Filter, ArrowUpRight, ArrowDownRight, Clock,
@@ -10,7 +11,6 @@ import { format, parseISO, isValid, startOfDay, endOfDay, subDays } from "date-f
 const TYPE_CONFIG = {
   commission: { label: "Commission", icon: Wallet, color: "text-amber-400 bg-amber-500/10 border-amber-500/20" },
   payout: { label: "Payout", icon: CreditCard, color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
-  ride_fare: { label: "Ride Fare", icon: Car, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
   payment: { label: "MoMo Payment", icon: DollarSign, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20" },
   wallet_tx: { label: "Wallet Tx", icon: FileText, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" },
 };
@@ -56,11 +56,10 @@ export default function Transactions() {
       const dailyFees   = await safeFetch("DailyCommission", () => firebaseClient.entities.DailyCommission?.list("-created_date", 400));
       const commissions = await safeFetch("Commission",      () => firebaseClient.entities.Commission?.list("-created_date", 300));
       const payouts     = await safeFetch("Payout",          () => firebaseClient.entities.Payout?.list("-created_date", 300));
-      const rides       = await safeFetch("Ride(completed)", () => firebaseClient.entities.Ride?.filter({ status: "completed" }, "-created_date", 400));
       const payments    = await safeFetch("Payment",         () => firebaseClient.entities.Payment?.list("-created_date", 300));
       const walletTxs   = await safeFetch("WalletTransaction", () => firebaseClient.entities.WalletTransaction?.list("-created_date", 300));
 
-      console.log("[Transactions] Summary — dailyFees:", dailyFees.length, "commissions:", commissions.length, "payouts:", payouts.length, "rides:", rides.length, "payments:", payments.length, "walletTxs:", walletTxs.length);
+      console.log("[Transactions] Summary — dailyFees:", dailyFees.length, "commissions:", commissions.length, "payouts:", payouts.length, "payments:", payments.length, "walletTxs:", walletTxs.length);
 
       const unified = [];
 
@@ -171,38 +170,7 @@ export default function Transactions() {
         } catch (e) { console.warn("[Transactions] skip payout item", item.id, e); }
       }
 
-      // 4. Ride Fares
-      for (const item of rides) {
-        try {
-          const rawDate = item.completed_at || item.created_date || item.created_at;
-          const dateISO = toISO(rawDate);
-          const dateObj = toDate(rawDate) || new Date(0);
-          unified.push({
-            id: `ride_fare_${item.id}`,
-            rawId: item.id,
-            type: "ride_fare",
-            amount: Number(item.fare || item.final_fare || item.estimated_fare || 0),
-            user: `${item.rider_name || "Rider"} → ${item.driver_name || "Driver"}`,
-            phone: item.driver_phone || item.rider_phone || "",
-            status: (item.status || "completed").toLowerCase(),
-            dateStr: dateISO,
-            dateObj,
-            reference: item.id,
-            details: {
-              Pickup: item.pickup_address || item.pickup?.address || "—",
-              Destination: item.destination_address || item.destination?.address || "—",
-              RiderName: item.rider_name || "—",
-              DriverName: item.driver_name || "—",
-              PaymentMethod: (item.payment_method || "cash").toUpperCase(),
-              Distance: item.distance ? `${item.distance} km` : "—",
-              CompletedAt: fmtDate(rawDate),
-            },
-            raw: item,
-          });
-        } catch (e) { console.warn("[Transactions] skip ride_fare item", item.id, e); }
-      }
-
-      // 5. MoMo & Public Payments
+      // 4. MoMo & Public Payments
       for (const item of payments) {
         try {
           const rawDate = item.created_date || item.createdAt || item.timestamp;
@@ -230,7 +198,7 @@ export default function Transactions() {
         } catch (e) { console.warn("[Transactions] skip payment item", item.id, e); }
       }
 
-      // 6. Wallet Transactions
+      // 5. Wallet Transactions
       for (const item of walletTxs) {
         try {
           const rawDate = item.created_date || item.createdAt || item.timestamp;
@@ -321,13 +289,11 @@ export default function Transactions() {
   // Aggregated Summary Cards
   const stats = useMemo(() => {
     let commissionFeesTotal = 0;
-    let rideFaresTotal = 0;
     let payoutsTotal = 0;
 
     for (const tx of filtered) {
       if (["paid", "completed", "success", "confirmed"].includes(tx.status)) {
         if (tx.type === "commission_fee" || tx.type === "commission" || tx.type === "daily_fee") commissionFeesTotal += tx.amount;
-        if (tx.type === "ride_fare") rideFaresTotal += tx.amount;
         if (tx.type === "payout") payoutsTotal += tx.amount;
       }
     }
@@ -335,7 +301,6 @@ export default function Transactions() {
     return {
       count: filtered.length,
       commissionFeesTotal,
-      rideFaresTotal,
       payoutsTotal,
     };
   }, [filtered]);
@@ -364,7 +329,7 @@ export default function Transactions() {
             Platform Transactions
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Comprehensive real-time financial ledger of commission fees, driver payouts, and trip fares.
+            Provider-confirmed Driver fees, payouts, and wallet/payment records. Server-authoritative trip charges appear in the protected ledger below.
           </p>
         </div>
         <button
@@ -396,9 +361,10 @@ export default function Transactions() {
         </div>
 
         <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-5 relative overflow-hidden">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ride Fares Processed</p>
-          <p className="text-2xl font-black text-emerald-400 mt-1">GH₵{stats.rideFaresTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-          <div className="absolute top-4 right-4 text-emerald-500/20">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ride Charges</p>
+          <p className="mt-1 text-sm font-semibold text-cyan-300">See protected ride ledger</p>
+          <p className="mt-1 text-xs text-muted-foreground">Final fare, waiting-fee component, and penalties are separated there.</p>
+          <div className="absolute top-4 right-4 text-cyan-500/20">
             <Car size={36} />
           </div>
         </div>
@@ -411,6 +377,8 @@ export default function Transactions() {
           </div>
         </div>
       </div>
+
+      <RideFinancialLedger />
 
       {/* Filter Toolbar */}
       <div className="bg-hy3n-surface border border-hy3n-border rounded-2xl p-4 space-y-4">
@@ -441,7 +409,6 @@ export default function Transactions() {
             <option value="all">All Transaction Types</option>
             <option value="commission">Commissions</option>
             <option value="payout">Driver Payouts</option>
-            <option value="ride_fare">Ride Fares</option>
             <option value="payment">MoMo & Public Payments</option>
             <option value="wallet_tx">Wallet Transactions</option>
           </select>

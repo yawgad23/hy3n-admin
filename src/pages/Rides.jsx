@@ -11,6 +11,14 @@ const statusColors = {
   "matched": "text-purple-400 bg-purple-400/10",
 };
 
+function displayFare(ride) {
+  const value = ride.status === "completed"
+    ? (ride.final_fare ?? ride.fare ?? ride.fare_estimate)
+    : (ride.fare_estimate ?? ride.quoted_fare ?? ride.fare);
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount : null;
+}
+
 export default function Rides() {
   const [rides, setRides] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,7 +132,7 @@ export default function Rides() {
                       </span>
                     </td>
                     <td className="px-5 py-3 text-muted-foreground text-xs hidden sm:table-cell">{ride.payment_method || "—"}</td>
-                    <td className="px-5 py-3 text-right text-white font-semibold">{(ride.fare_estimate || ride.fare) ? `GHS ${ride.fare_estimate || ride.fare}` : "—"}</td>
+                    <td className="px-5 py-3 text-right text-white font-semibold">{displayFare(ride) !== null ? `GHS ${displayFare(ride)}` : "—"}</td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => { setEditRide(ride); setShowForm(true); }} className="text-xs text-hy3n-gold hover:underline">Edit</button>

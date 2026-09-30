@@ -3,6 +3,11 @@ import { firebaseClient } from "@/api/firebaseClient";
 import { Wallet, CheckCircle, Clock, TrendingUp, RefreshCw, Search, Zap } from "lucide-react";
 import DriverPayoutDetail from "../components/DriverPayoutDetail";
 
+function finalDriverEarnings(ride) {
+  const amount = Number(ride.driver_earnings ?? ride.final_fare ?? ride.fare ?? 0);
+  return Number.isFinite(amount) && amount > 0 ? amount : 0;
+}
+
 export default function Payouts() {
   const [drivers, setDrivers] = useState([]);
   const [rides, setRides] = useState([]);
@@ -38,7 +43,7 @@ export default function Payouts() {
     const driverCommissions = commissions.filter(c => c.driver_id === driver.id || c.driver_name === driver.full_name);
     const driverPayouts = payouts.filter(p => p.driver_id === driver.id);
 
-    const grossEarnings = driverRides.reduce((s, r) => s + (r.fare || 0), 0);
+    const grossEarnings = driverRides.reduce((s, r) => s + finalDriverEarnings(r), 0);
     const totalCommission = driverCommissions.reduce((s, c) => s + (c.amount || 0), 0);
     const netEarnings = grossEarnings - totalCommission;
 
@@ -104,7 +109,7 @@ export default function Payouts() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-white">Driver Payouts</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Earnings minus commissions — track and pay drivers</p>
+          <p className="text-muted-foreground text-sm mt-0.5">Final server ride earnings, including any recorded waiting fee, minus commissions</p>
         </div>
         <button onClick={fetchAll} className="flex items-center gap-2 bg-hy3n-surface border border-hy3n-border hover:border-hy3n-gold/40 text-white px-4 py-2.5 rounded-xl text-sm transition-colors font-semibold">
           <RefreshCw size={15} /> Refresh

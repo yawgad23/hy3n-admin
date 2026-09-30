@@ -146,6 +146,14 @@ export const adminApi = {
     return request("/api/admin/rides/live");
   },
 
+  rideFinancials(filters = {}) {
+    const query = new URLSearchParams();
+    if (filters.dateFrom) query.set("dateFrom", filters.dateFrom);
+    if (filters.dateTo) query.set("dateTo", filters.dateTo);
+    const suffix = query.toString();
+    return request(`/api/admin/financials/rides${suffix ? `?${suffix}` : ""}`);
+  },
+
   notifications() {
     return request("/api/admin/notifications");
   },

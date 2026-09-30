@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
+import { adminApi } from "@/api/adminApi";
+import RideFinancialLedger from "@/components/RideFinancialLedger";
 import { Car, Users, UserCircle, TrendingUp, Star, Clock, CheckCircle, XCircle } from "lucide-react";
 
 const StatCard = ({ label, value, icon: Icon, color, sub }) => (
@@ -27,6 +29,7 @@ export default function Dashboard() {
   const [rides, setRides] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [riders, setRiders] = useState([]);
+  const [rideFinancials, setRideFinancials] = useState({ summary: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,10 +37,12 @@ export default function Dashboard() {
       firebaseClient.entities.Ride.list("-created_date", 50),
       firebaseClient.entities.DriverProfile.list("-created_date", 200),
       firebaseClient.entities.RiderProfile.list("-created_date", 200),
-    ]).then(([r, d, ri]) => {
+      adminApi.rideFinancials(),
+    ]).then(([r, d, ri, financials]) => {
       setRides(r);
       setDrivers(d);
       setRiders(ri);
+      setRideFinancials(financials || { summary: {} });
       setLoading(false);
     }).catch((err) => {
       console.error("[Dashboard] Error loading data:", err);
@@ -45,10 +50,17 @@ export default function Dashboard() {
     });
   }, []);
 
-  const totalRevenue = rides.filter(r => r.status === "completed").reduce((s, r) => s + (r.fare_estimate || r.fare || 0), 0);
+  const totalRideCharge = Number(rideFinancials.summary?.totalRideCharge || 0);
   const activeDrivers = drivers.filter(d => d.is_online).length;
   const completedToday = rides.filter(r => r.status === "completed").length;
   const recentRides = rides.slice(0, 8);
+  const displayFare = (ride) => {
+    const amount = ride.status === "completed"
+      ? (ride.final_fare ?? ride.fare ?? ride.fare_estimate)
+      : (ride.fare_estimate ?? ride.quoted_fare ?? ride.fare);
+    const numeric = Number(amount);
+    return Number.isFinite(numeric) ? numeric : null;
+  };
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -66,10 +78,12 @@ export default function Dashboard() {
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Total Rides" value={rides.length} icon={Car} color="bg-hy3n-gold" sub={`${completedToday} completed`} />
-        <StatCard label="Total Revenue" value={`GHS ${totalRevenue.toLocaleString()}`} icon={TrendingUp} color="bg-hy3n-green" sub="All time earnings" />
+        <StatCard label="Completed Ride Charges" value={`GHS ${totalRideCharge.toLocaleString()}`} icon={TrendingUp} color="bg-hy3n-green" sub="Server final fares; not payment collection" />
         <StatCard label="Active Drivers" value={activeDrivers} icon={UserCircle} color="bg-hy3n-red" sub={`${drivers.length} total drivers`} />
         <StatCard label="Riders" value={riders.length} icon={Users} color="bg-purple-500" sub="Registered users" />
       </div>
+
+      <RideFinancialLedger compact />
 
       {/* Ride status breakdown */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -115,7 +129,7 @@ export default function Dashboard() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-right text-white font-medium">
-                    {(ride.fare_estimate || ride.fare) ? `GHS ${ride.fare_estimate || ride.fare}` : "—"}
+                    {displayFare(ride) !== null ? `GHS ${displayFare(ride)}` : "—"}
                   </td>
                 </tr>
               ))}
