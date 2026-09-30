@@ -154,6 +154,10 @@ export const adminApi = {
     return request(`/api/admin/financials/rides${suffix ? `?${suffix}` : ""}`);
   },
 
+  latestFinancialReconciliation() {
+    return request('/api/admin/financials/reconciliation/latest');
+  },
+
   notifications() {
     return request("/api/admin/notifications");
   },

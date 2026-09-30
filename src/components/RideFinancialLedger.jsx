@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertCircle, Clock3, ReceiptText, RefreshCw, ShieldCheck } from "lucide-react";
 import { adminApi } from "@/api/adminApi";
+import DailyFinancialReconciliationStatus from "@/components/DailyFinancialReconciliationStatus";
 
 function money(value) {
   return new Intl.NumberFormat("en-GH", {
@@ -74,6 +75,8 @@ export default function RideFinancialLedger({ compact = false }) {
         <ShieldCheck className="mt-0.5 shrink-0 text-hy3n-green" size={18} />
         <p className="text-sm text-muted-foreground"><span className="font-semibold text-hy3n-green">No double counting.</span> The waiting fee is a visible component of the confirmed completed fare and is not added again to Ride Charges. A ride amount is not proof of cash collection; reconcile payment-provider records separately.</p>
       </div>
+
+      <DailyFinancialReconciliationStatus />
 
       {Number(summary.legacyQuoteEstimateRides || 0) > 0 && <div className="flex gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4"><AlertCircle className="mt-0.5 shrink-0 text-amber-300" size={18} /><p className="text-sm text-muted-foreground"><span className="font-semibold text-amber-300">Legacy estimate records are excluded.</span> {summary.legacyQuoteEstimateRides} historical completed ride record(s) have no persisted final fare. Their quote estimate is shown for audit only and is not included in revenue, rider charges, or Driver earnings.</p></div>}
       {error && <div className="flex gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"><AlertCircle size={16} className="mt-0.5 shrink-0" />{error}</div>}
