@@ -83,6 +83,13 @@ export const adminApi = {
     });
   },
 
+  setDriverFeeBypass(userId, enabled, reason = "") {
+    return request(`/api/admin/drivers/${encodeURIComponent(userId)}/fee-bypass`, {
+      method: "PATCH",
+      body: JSON.stringify({ enabled, reason }),
+    });
+  },
+
   removeAccount(userId, role) {
     return request(`/api/admin/accounts/${encodeURIComponent(userId)}?role=${encodeURIComponent(role)}`, {
       method: "DELETE",
