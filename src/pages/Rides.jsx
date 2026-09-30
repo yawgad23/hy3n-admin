@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { Search, Plus, Car } from "lucide-react";
 import RideForm from "../components/RideForm";
+import TripDetailsDialog from "../components/TripDetailsDialog";
 
 const statusColors = {
   "completed": "text-hy3n-green bg-hy3n-green/10",
@@ -26,6 +27,7 @@ export default function Rides() {
   const [filterStatus, setFilterStatus] = useState("All");
   const [showForm, setShowForm] = useState(false);
   const [editRide, setEditRide] = useState(null);
+  const [selectedRideId, setSelectedRideId] = useState(null);
 
   const fetchRides = () => {
     setLoading(true);
@@ -135,6 +137,7 @@ export default function Rides() {
                     <td className="px-5 py-3 text-right text-white font-semibold">{displayFare(ride) !== null ? `GHS ${displayFare(ride)}` : "—"}</td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button onClick={() => setSelectedRideId(ride.id)} className="text-xs text-hy3n-gold hover:underline">Details</button>
                         <button onClick={() => { setEditRide(ride); setShowForm(true); }} className="text-xs text-hy3n-gold hover:underline">Edit</button>
                         <button onClick={() => handleDelete(ride.id)} className="text-xs text-hy3n-red hover:underline">Delete</button>
                       </div>
@@ -157,6 +160,7 @@ export default function Rides() {
           onSaved={() => { setShowForm(false); fetchRides(); }}
         />
       )}
+      {selectedRideId && <TripDetailsDialog rideId={selectedRideId} onClose={() => setSelectedRideId(null)} />}
     </div>
   );
 }

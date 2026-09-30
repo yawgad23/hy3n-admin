@@ -153,6 +153,10 @@ export const adminApi = {
     return request("/api/admin/rides/live");
   },
 
+  tripDetails(rideId) {
+    return request(`/api/admin/rides/${encodeURIComponent(rideId)}/details`);
+  },
+
   rideFinancials(filters = {}) {
     const query = new URLSearchParams();
     if (filters.dateFrom) query.set("dateFrom", filters.dateFrom);
