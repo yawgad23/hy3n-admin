@@ -28,7 +28,7 @@ export default function Analytics() {
   );
 
   const totalRideCharge = Number(rideFinancials.summary?.totalRideCharge || 0);
-  const completedRides = Number(rideFinancials.summary?.completedRides || 0);
+  const completedRides = Number(rideFinancials.summary?.confirmedCompletedRides || 0);
   const avgFare = completedRides ? (totalRideCharge / completedRides).toFixed(2) : 0;
   const completionRate = rides.length ? ((rides.filter(r => r.status === "completed").length / rides.length) * 100).toFixed(1) : 0;
   const avgRating = rides.filter(r => r.rating).length ? (rides.filter(r=>r.rating).reduce((s,r)=>s+(r.rating||0),0) / rides.filter(r=>r.rating).length).toFixed(1) : "N/A";
