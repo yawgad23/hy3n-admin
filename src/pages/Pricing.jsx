@@ -24,7 +24,13 @@ function roundGhsFare(value) {
 
 function previewFare(rate, distanceKm = 5, durationMinutes = 15) {
   const raw = asNumber(rate.baseFare) + asNumber(rate.pricePerKm) * distanceKm + asNumber(rate.pricePerMinute) * durationMinutes;
-  return roundGhsFare(Math.max(raw, asNumber(rate.minFare)) + asNumber(rate.bookingFee));
+  const uncapped = Math.max(raw, asNumber(rate.minFare));
+  const shortTripCap = asNumber(rate.shortTripCap, 0);
+  const shortTripDistance = asNumber(rate.shortTripMaxDistanceKm, 0);
+  const shortTripDuration = asNumber(rate.shortTripMaxDurationMinutes, 0);
+  const capApplies = shortTripCap > 0 && shortTripDistance > 0 && shortTripDuration > 0
+    && distanceKm <= shortTripDistance && durationMinutes <= shortTripDuration;
+  return roundGhsFare(capApplies ? Math.min(uncapped, shortTripCap) : uncapped);
 }
 
 /** Compatibility preview for the internal ride form; final prices always come from the API. */
@@ -101,8 +107,13 @@ export default function Pricing() {
         pricePerKm: asNumber(rate.pricePerKm),
         pricePerMinute: asNumber(rate.pricePerMinute),
         minFare: asNumber(rate.minFare),
-        bookingFee: asNumber(rate.bookingFee),
+        bookingFee: 0,
         waitingFeePerMinute: asNumber(rate.waitingFeePerMinute),
+        ...(category === "standard" ? {
+          shortTripCap: asNumber(rate.shortTripCap),
+          shortTripMaxDistanceKm: asNumber(rate.shortTripMaxDistanceKm),
+          shortTripMaxDurationMinutes: asNumber(rate.shortTripMaxDurationMinutes),
+        } : {}),
         isActive: rate.isActive !== false,
       });
       setRates((previous) => ({ ...previous, [category]: response.fareRate }));
@@ -136,8 +147,8 @@ export default function Pricing() {
           <Info className="mt-0.5 shrink-0 text-hy3n-gold" size={18} />
           <div className="space-y-1 text-sm">
             <p className="font-semibold text-white">Server fare formula</p>
-            <p className="font-mono text-xs text-muted-foreground">Final fare = round( max(Base + Per km × distance + Per min × trip time, minimum) × approved surge + booking fee + paid waiting )</p>
-            <p className="text-xs text-muted-foreground">Paid waiting starts after 3 complimentary minutes at pickup, is measured from server arrival/start timestamps, and uses the confirmed ride's rate snapshot.</p>
+            <p className="font-mono text-xs text-muted-foreground">Final fare = round( max(Base + Per km × distance + Per min × trip time, minimum) × approved surge + paid waiting )</p>
+            <p className="text-xs text-muted-foreground">There is no separate booking fee while Riders pay Drivers directly in cash. Paid waiting starts after 3 complimentary minutes at pickup, is measured from server timestamps, and uses the confirmed ride's rate snapshot.</p>
           </div>
         </div>
       </section>
@@ -171,8 +182,13 @@ export default function Pricing() {
                   <Field label="Minimum fare (GHS)" value={rate.minFare} onChange={(value) => update(id, "minFare", value)} step="0.5" />
                   <Field label="Per km (GHS)" value={rate.pricePerKm} onChange={(value) => update(id, "pricePerKm", value)} />
                   <Field label="Per minute (GHS)" value={rate.pricePerMinute} onChange={(value) => update(id, "pricePerMinute", value)} />
-                  <div className="col-span-2"><Field label="Booking fee (GHS)" value={rate.bookingFee} onChange={(value) => update(id, "bookingFee", value)} step="0.5" /></div>
                   <div className="col-span-2"><Field label="Waiting fee / minute after 3 free minutes (GHS)" value={rate.waitingFeePerMinute} onChange={(value) => update(id, "waitingFeePerMinute", value)} /></div>
+                  {id === "standard" && <>
+                    <div className="col-span-2 rounded-xl border border-hy3n-green/25 bg-hy3n-green/5 px-3 py-2 text-xs text-muted-foreground">Short-trip cap applies only to new Standard quotes whose server road route is within both limits. Paid waiting remains separate.</div>
+                    <Field label="Short-trip cap (GHS)" value={rate.shortTripCap} onChange={(value) => update(id, "shortTripCap", value)} step="0.5" />
+                    <Field label="Maximum route distance (km)" value={rate.shortTripMaxDistanceKm} onChange={(value) => update(id, "shortTripMaxDistanceKm", value)} step="0.1" min="0.1" />
+                    <div className="col-span-2"><Field label="Maximum route time (minutes)" value={rate.shortTripMaxDurationMinutes} onChange={(value) => update(id, "shortTripMaxDurationMinutes", value)} step="1" min="1" /></div>
+                  </>}
                 </div>
                 <button onClick={() => save(id)} disabled={saving[id]} className={`flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold transition disabled:opacity-60 ${saved[id] ? "border border-hy3n-green/30 bg-hy3n-green/15 text-hy3n-green" : "bg-hy3n-gold text-black hover:bg-hy3n-gold/90"}`}>
                   {saved[id] ? <CheckCircle2 size={16} /> : <Save size={16} />}{saving[id] ? "Saving…" : saved[id] ? "Saved" : "Save category pricing"}
