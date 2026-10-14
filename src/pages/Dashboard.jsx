@@ -27,22 +27,19 @@ const statusColors = {
 
 export default function Dashboard() {
   const [rides, setRides] = useState([]);
-  const [drivers, setDrivers] = useState([]);
-  const [riders, setRiders] = useState([]);
+  const [accountSummary, setAccountSummary] = useState(null);
   const [rideFinancials, setRideFinancials] = useState({ summary: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([
       firebaseClient.entities.Ride.list("-created_date", 50),
-      firebaseClient.entities.DriverProfile.list("-created_date", 200),
-      firebaseClient.entities.RiderProfile.list("-created_date", 200),
       adminApi.rideFinancials(),
-    ]).then(([r, d, ri, financials]) => {
+      adminApi.accountSummary(),
+    ]).then(([r, financials, summary]) => {
       setRides(r);
-      setDrivers(d);
-      setRiders(ri);
       setRideFinancials(financials || { summary: {} });
+      setAccountSummary(summary || null);
       setLoading(false);
     }).catch((err) => {
       console.error("[Dashboard] Error loading data:", err);
@@ -51,7 +48,9 @@ export default function Dashboard() {
   }, []);
 
   const totalRideCharge = Number(rideFinancials.summary?.totalRideCharge || 0);
-  const activeDrivers = drivers.filter(d => d.is_online).length;
+  const drivers = accountSummary?.drivers || { totalRegistered: 0, online: 0, byApproval: {}, byType: {} };
+  const riders = accountSummary?.riders || { totalRegistered: 0, byStatus: {} };
+  const driverTypes = Object.entries(drivers.byType || {}).sort(([first], [second]) => first.localeCompare(second));
   const completedToday = rides.filter(r => r.status === "completed").length;
   const recentRides = rides.slice(0, 8);
   const displayFare = (ride) => {
@@ -79,9 +78,25 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Total Rides" value={rides.length} icon={Car} color="bg-hy3n-gold" sub={`${completedToday} completed`} />
         <StatCard label="Completed Ride Charges" value={`GHS ${totalRideCharge.toLocaleString()}`} icon={TrendingUp} color="bg-hy3n-green" sub="Server final fares; not payment collection" />
-        <StatCard label="Active Drivers" value={activeDrivers} icon={UserCircle} color="bg-hy3n-red" sub={`${drivers.length} total drivers`} />
-        <StatCard label="Riders" value={riders.length} icon={Users} color="bg-purple-500" sub="Registered users" />
+        <StatCard label="Registered Drivers" value={drivers.totalRegistered} icon={UserCircle} color="bg-hy3n-red" sub={`${drivers.online || 0} online • ${drivers.byApproval?.approved || 0} approved`} />
+        <StatCard label="Registered Riders" value={riders.totalRegistered} icon={Users} color="bg-purple-500" sub={`${riders.byStatus?.active || 0} active accounts`} />
       </div>
+
+      <section className="rounded-2xl border border-hy3n-border bg-hy3n-surface p-5" aria-labelledby="account-summary-title">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 id="account-summary-title" className="font-semibold text-white">Registered accounts</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">Live server totals — no manual head count required.</p>
+          </div>
+          <p className="text-xs text-muted-foreground">{accountSummary?.complete === false ? "More than 50,000 records — shown totals are capped" : "All current account records counted"}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl bg-white/5 p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Drivers</p><p className="mt-1 text-2xl font-bold text-white">{drivers.totalRegistered}</p><p className="mt-1 text-xs text-muted-foreground">{drivers.online || 0} online now</p></div>
+          <div className="rounded-xl bg-white/5 p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Driver approval</p><p className="mt-1 text-sm font-medium text-white">{drivers.byApproval?.approved || 0} approved</p><p className="mt-1 text-xs text-muted-foreground">{drivers.byApproval?.pending || 0} pending · {drivers.byApproval?.rejected || 0} rejected</p></div>
+          <div className="rounded-xl bg-white/5 p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Riders</p><p className="mt-1 text-2xl font-bold text-white">{riders.totalRegistered}</p><p className="mt-1 text-xs text-muted-foreground">{riders.byStatus?.active || 0} active · {riders.byStatus?.suspended || 0} suspended</p></div>
+          <div className="rounded-xl bg-white/5 p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Driver types</p><p className="mt-1 text-sm font-medium capitalize text-white">{driverTypes.length ? driverTypes.map(([type, count]) => `${type}: ${count}`).join(" · ") : "No Drivers registered"}</p><p className="mt-1 text-xs text-muted-foreground">Car, Okada, Delivery, and other registered types</p></div>
+        </div>
+      </section>
 
       <RideFinancialLedger compact />
 

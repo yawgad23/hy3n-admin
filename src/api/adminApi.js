@@ -62,6 +62,10 @@ export const adminApi = {
     return request(`/api/admin/accounts?role=${encodeURIComponent(role)}`);
   },
 
+  accountSummary() {
+    return request("/api/admin/account-summary");
+  },
+
   createAccount(payload) {
     return request("/api/admin/accounts", {
       method: "POST",
