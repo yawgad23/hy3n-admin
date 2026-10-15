@@ -106,13 +106,18 @@ export default function Drivers() {
   const [auditAccount, setAuditAccount] = useState(null);
   const [auditEvents, setAuditEvents] = useState(null);
   const [auditError, setAuditError] = useState("");
+  const [globalFeeBypass, setGlobalFeeBypass] = useState(null);
   const [form, setForm] = useState({
     fullName: "", email: "", phone: "", password: "", serviceType: "car", vehicleMake: "", vehicleModel: "", licensePlate: "",
   });
 
   const load = async () => {
     setLoading(true); setError("");
-    try { const result = await adminApi.listAccounts("driver"); setDrivers(result.accounts || []); }
+    try {
+      const [result, settings] = await Promise.all([adminApi.listAccounts("driver"), adminApi.settings()]);
+      setDrivers(result.accounts || []);
+      setGlobalFeeBypass(settings.globalDriverFeeBypass || null);
+    }
     catch (err) { setError(err.message || "Drivers could not be loaded."); }
     finally { setLoading(false); }
   };
@@ -165,6 +170,17 @@ export default function Drivers() {
     if (reason === null) return;
     run(`fee-bypass-${driver.userId}`, () => adminApi.setDriverFeeBypass(driver.userId, true, reason));
   };
+  const toggleAllDriversFeeBypass = () => {
+    if (globalFeeBypass?.active) {
+      if (!window.confirm("Remove today's all-Driver fee pass now? Drivers without a confirmed fee or individual bypass will be gated again immediately.")) return;
+      run("all-drivers-fee-bypass", () => adminApi.setAllDriversFeeBypass(false));
+      return;
+    }
+    const reason = window.prompt("Reason for today's all-Driver fee pass:", "Operational payment-flow support");
+    if (reason === null) return;
+    if (!window.confirm("Allow all approved Drivers to pass today's daily fee gate? This does not mark any payment as paid, and it can be removed immediately.")) return;
+    run("all-drivers-fee-bypass", () => adminApi.setAllDriversFeeBypass(true, reason));
+  };
 
   const openAudit = async (driver) => {
     setAuditAccount(driver);
@@ -182,6 +198,13 @@ export default function Drivers() {
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h1 className="text-2xl font-bold text-white">Drivers</h1><p className="mt-0.5 text-sm text-muted-foreground">Verify documents, then approve, suspend, or deactivate Driver accounts while retaining records for review.</p></div><button onClick={() => setShowCreate(true)} className="inline-flex items-center justify-center gap-2 rounded-xl bg-hy3n-gold px-4 py-2.5 text-sm font-semibold text-black hover:bg-hy3n-gold/90"><Plus size={16} /> Register Driver</button></div>
       <div className="rounded-2xl border border-hy3n-green/30 bg-hy3n-green/10 p-4 text-sm text-muted-foreground"><span className="font-semibold text-hy3n-green">Verification safeguard:</span> new Drivers remain <span className="text-white">pending</span> and offline until an administrator reviews their submitted documents and approves them.</div>
+      <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${globalFeeBypass?.active ? "border-amber-500/40 bg-amber-500/10" : "border-hy3n-border bg-hy3n-surface"}`}>
+        <div>
+          <p className={`text-sm font-semibold ${globalFeeBypass?.active ? "text-amber-100" : "text-white"}`}>All-Driver daily fee pass</p>
+          <p className="mt-1 text-xs text-muted-foreground">{globalFeeBypass?.active ? `Active today. ${globalFeeBypass.reason} This does not record a fee as paid.` : "Give all approved Drivers a same-day operational pass without changing individual Driver bypasses or payment records."}</p>
+        </div>
+        <button disabled={busy === "all-drivers-fee-bypass"} onClick={toggleAllDriversFeeBypass} className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ${globalFeeBypass?.active ? "border-amber-500/40 text-amber-200 hover:bg-amber-500/10" : "border-hy3n-gold/50 bg-hy3n-gold/10 text-hy3n-gold hover:bg-hy3n-gold/20"}`}><ShieldCheck size={16} />{busy === "all-drivers-fee-bypass" ? "Saving…" : globalFeeBypass?.active ? "Remove all-Driver pass" : "Pass fee for all Drivers today"}</button>
+      </div>
       {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
       <div className="flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Driver, phone, vehicle, plate, or type" className="w-full rounded-xl border border-hy3n-border bg-hy3n-surface py-2.5 pl-9 pr-3 text-sm text-white outline-none focus:border-hy3n-gold/60" /></label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-hy3n-border bg-hy3n-surface px-3 py-2.5 text-sm text-white outline-none"><option value="all">All accounts</option><option value="active">Active</option><option value="inactive">Inactive (retained)</option><option value="suspended">Suspended</option><option value="pending">Pending verification</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></div>
       {loading ? <div className="flex h-48 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-hy3n-gold/30 border-t-hy3n-gold" /></div> : <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">{filtered.map((driver) => { const documents = documentItems(driver); const feeBypassActive = driver.driverFeeBypass?.active === true; return <article key={driver.userId} className="rounded-2xl border border-hy3n-border bg-hy3n-surface p-5"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold text-white">{driver.fullName}</h2><p className="mt-0.5 truncate text-xs text-muted-foreground">{driver.email || driver.phone || "No contact details"}</p></div><div className="flex gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyle(driver.accountStatus)}`}>{driver.accountStatus}</span><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${driver.approvalStatus === "approved" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>{driver.approvalStatus || "pending"}</span></div></div><RetentionAudit audit={driver.retentionAudit} onView={() => openAudit(driver)} className="mt-3" /><div className="mt-4 grid grid-cols-2 gap-3 text-xs"><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Driver type</p><p className="mt-1 capitalize text-white">{driver.serviceType}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Vehicle</p><p className="mt-1 truncate text-white">{driver.vehicle || "Not recorded"}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Plate</p><p className="mt-1 text-white">{driver.plate || "Not recorded"}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Verification files</p><p className="mt-1 text-white">{documents.length} submitted</p></div></div>{feeBypassActive && <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"><span className="font-semibold">Fee gate bypass active today.</span> {driver.driverFeeBypass.reason}</div>}<div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setReviewing(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-gold/40 bg-hy3n-gold/10 px-3 py-2 text-xs font-medium text-hy3n-gold hover:bg-hy3n-gold/20"><FileText size={13} /> Review documents</button>{driver.phone && <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs text-white hover:bg-white/5">Call</a>}<button disabled={busy === `fee-bypass-${driver.userId}`} onClick={() => toggleFeeBypass(driver)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50 ${feeBypassActive ? "border-amber-500/30 text-amber-200 hover:bg-amber-500/10" : "border-hy3n-border text-white hover:bg-white/5"}`}><ShieldCheck size={13} /> {feeBypassActive ? "Remove fee bypass" : "Bypass fee today"}</button><button disabled={busy === `status-${driver.userId}`} onClick={() => run(`status-${driver.userId}`, () => adminApi.setAccountStatus(driver.userId, "driver", driver.accountStatus === "active" ? "suspended" : "active"))} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs font-medium text-white hover:bg-white/5 disabled:opacity-50"><ShieldCheck size={13} /> {driver.accountStatus === "active" ? "Suspend" : "Restore"}</button>{driver.accountStatus === "active" && <button disabled={busy === `deactivate-${driver.userId}`} onClick={() => deactivate(driver)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"><Archive size={13} /> Deactivate</button>}</div></article>; })}{!filtered.length && <div className="col-span-full rounded-2xl border border-hy3n-border bg-hy3n-surface py-14 text-center text-sm text-muted-foreground">No Driver accounts match these filters.</div>}</div>}

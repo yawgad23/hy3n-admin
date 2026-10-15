@@ -131,6 +131,13 @@ export const adminApi = {
     });
   },
 
+  setAllDriversFeeBypass(enabled, reason = "") {
+    return request("/api/admin/settings/driver-fee-bypass", {
+      method: "PATCH",
+      body: JSON.stringify({ enabled, reason }),
+    });
+  },
+
   fareRates() {
     return request('/api/admin/settings/fares');
   },
