@@ -6,7 +6,7 @@ const CATEGORIES = [
   { id: "standard", label: "Standard", icon: Car },
   { id: "comfort", label: "Comfort", icon: Car },
   { id: "kantanka", label: "Kantanka", icon: Car },
-  { id: "executive", label: "Executive", icon: Car },
+  { id: "car_delivery", label: "Car Delivery", icon: Package },
   { id: "okada", label: "Okada", icon: Bike },
   { id: "express_delivery", label: "Express Delivery", icon: Package },
 ];
@@ -109,7 +109,7 @@ export default function Pricing() {
         minFare: asNumber(rate.minFare),
         bookingFee: 0,
         waitingFeePerMinute: asNumber(rate.waitingFeePerMinute),
-        ...(category === "standard" ? {
+        ...(category === "standard" || category === "car_delivery" ? {
           shortTripCap: asNumber(rate.shortTripCap),
           shortTripMaxDistanceKm: asNumber(rate.shortTripMaxDistanceKm),
           shortTripMaxDurationMinutes: asNumber(rate.shortTripMaxDurationMinutes),
@@ -183,8 +183,8 @@ export default function Pricing() {
                   <Field label="Per km (GHS)" value={rate.pricePerKm} onChange={(value) => update(id, "pricePerKm", value)} />
                   <Field label="Per minute (GHS)" value={rate.pricePerMinute} onChange={(value) => update(id, "pricePerMinute", value)} />
                   <div className="col-span-2"><Field label="Waiting fee / minute after 3 free minutes (GHS)" value={rate.waitingFeePerMinute} onChange={(value) => update(id, "waitingFeePerMinute", value)} /></div>
-                  {id === "standard" && <>
-                    <div className="col-span-2 rounded-xl border border-hy3n-green/25 bg-hy3n-green/5 px-3 py-2 text-xs text-muted-foreground">Short-trip cap applies only to new Standard quotes whose server road route is within both limits. Paid waiting remains separate.</div>
+                  {(id === "standard" || id === "car_delivery") && <>
+                    <div className="col-span-2 rounded-xl border border-hy3n-green/25 bg-hy3n-green/5 px-3 py-2 text-xs text-muted-foreground">Short-trip cap applies to new Standard and Car Delivery quotes whose server road route is within both limits. Paid waiting remains separate.</div>
                     <Field label="Short-trip cap (GHS)" value={rate.shortTripCap} onChange={(value) => update(id, "shortTripCap", value)} step="0.5" />
                     <Field label="Maximum route distance (km)" value={rate.shortTripMaxDistanceKm} onChange={(value) => update(id, "shortTripMaxDistanceKm", value)} step="0.1" min="0.1" />
                     <div className="col-span-2"><Field label="Maximum route time (minutes)" value={rate.shortTripMaxDurationMinutes} onChange={(value) => update(id, "shortTripMaxDurationMinutes", value)} step="1" min="1" /></div>

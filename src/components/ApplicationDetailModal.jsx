@@ -6,7 +6,7 @@ const ALL_CATEGORIES = [
   { id: 'standard',         label: 'Standard' },
   { id: 'comfort',          label: 'Comfort' },
   { id: 'kantanka',         label: 'Kantanka' },
-  { id: 'executive',        label: 'Executive' },
+  { id: 'car_delivery',     label: 'Car Delivery' },
   { id: 'okada',            label: 'Okada' },
   { id: 'express_delivery', label: 'Express Delivery' },
 ];
