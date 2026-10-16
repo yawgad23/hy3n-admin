@@ -80,6 +80,13 @@ export const adminApi = {
     });
   },
 
+  correctAccountIdentity(userId, payload) {
+    return request(`/api/admin/accounts/${encodeURIComponent(userId)}/identity`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  },
+
   setDriverApproval(userId, approvalStatus, reason = "") {
     return request(`/api/admin/drivers/${encodeURIComponent(userId)}/approval`, {
       method: "PATCH",
