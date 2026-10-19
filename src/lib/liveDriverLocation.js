@@ -2,6 +2,7 @@ const TRACKABLE_RIDE_STATUSES = new Set([
   "matched",
   "driver_arriving",
   "driver_arrived",
+  "driver_queued",
   "in_progress",
 ]);
 

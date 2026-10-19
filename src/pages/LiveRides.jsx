@@ -9,6 +9,7 @@ const tripStatusConfig = {
   matched: { label: "Driver Assigned", color: "text-purple-400 bg-purple-400/10", dot: "bg-purple-400" },
   driver_arriving: { label: "Driver Arriving", color: "text-amber-300 bg-amber-300/10", dot: "bg-amber-300" },
   driver_arrived: { label: "Driver Arrived", color: "text-amber-300 bg-amber-300/10", dot: "bg-amber-300" },
+  driver_queued: { label: "Driver Assigned", color: "text-purple-400 bg-purple-400/10", dot: "bg-purple-400" },
   in_progress: { label: "Trip Started", color: "text-hy3n-green bg-hy3n-green/10", dot: "bg-hy3n-green" },
   completed: { label: "Completed", color: "text-muted-foreground bg-white/5", dot: "bg-muted-foreground" },
   cancelled: { label: "Cancelled", color: "text-hy3n-red bg-hy3n-red/10", dot: "bg-hy3n-red" },
@@ -37,7 +38,7 @@ export default function LiveRides() {
   const recent = rides.recent || [];
   const stats = useMemo(() => ({
     waiting: active.filter((ride) => ride.status === "searching").length,
-    assigned: active.filter((ride) => ["matched", "driver_arriving", "driver_arrived"].includes(ride.status)).length,
+    assigned: active.filter((ride) => ["matched", "driver_arriving", "driver_arrived", "driver_queued"].includes(ride.status)).length,
     started: active.filter((ride) => ride.status === "in_progress").length,
   }), [active]);
 

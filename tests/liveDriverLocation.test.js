@@ -26,6 +26,11 @@ describe("Admin live Driver map guard", () => {
       lng: -0.187,
       updatedAt: "2026-10-19T18:00:00.000Z",
     });
+    expect(renderableDriverLocation(ride({ status: "driver_queued" }))).toEqual({
+      lat: 5.6037,
+      lng: -0.187,
+      updatedAt: "2026-10-19T18:00:00.000Z",
+    });
   });
 
   it("does not render a Driver marker for searching, terminal, stale, malformed, or unapproved points", () => {

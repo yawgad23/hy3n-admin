@@ -50,7 +50,7 @@ export default function LiveMap({ rides = [] }) {
       .join("|"),
     [rideCoords],
   );
-  const statusColor = { searching: "#3B82F6", matched: "#A855F7", driver_arriving: "#FBBF24", driver_arrived: "#FBBF24", in_progress: "#22C55E" };
+  const statusColor = { searching: "#3B82F6", matched: "#A855F7", driver_arriving: "#FBBF24", driver_arrived: "#FBBF24", driver_queued: "#A855F7", in_progress: "#22C55E" };
 
   return <div className="relative h-full w-full overflow-hidden bg-hy3n-bg">
     <MapContainer center={[7.9465, -1.0232]} zoom={7} style={{ height: "100%", width: "100%", background: "#1a1a1a" }} zoomControl={false}>
