@@ -24,7 +24,7 @@ function dateTime(value) {
  * Protected financial view. Confirmed charges come from the persisted final
  * fare. Legacy quote-only records remain visible, but never inflate revenue.
  */
-export default function RideFinancialLedger({ compact = false }) {
+export default function RideFinancialLedger({ compact = false, includeTestDrivers = false }) {
   const [ledger, setLedger] = useState({ records: [], summary: {}, accountingBasis: {} });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -33,7 +33,7 @@ export default function RideFinancialLedger({ compact = false }) {
     setLoading(true);
     setError("");
     try {
-      const result = await adminApi.rideFinancials();
+      const result = await adminApi.rideFinancials({ includeTestDrivers });
       setLedger({
         records: result.records || [],
         summary: result.summary || {},
@@ -46,7 +46,7 @@ export default function RideFinancialLedger({ compact = false }) {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [includeTestDrivers]);
 
   const records = useMemo(
     () => compact ? ledger.records.slice(0, 8) : ledger.records,

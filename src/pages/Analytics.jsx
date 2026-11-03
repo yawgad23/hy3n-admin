@@ -12,14 +12,23 @@ export default function Analytics() {
   const [drivers, setDrivers] = useState([]);
   const [rideFinancials, setRideFinancials] = useState({ summary: {} });
   const [loading, setLoading] = useState(true);
+  const [includeTestDrivers, setIncludeTestDrivers] = useState(false);
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
       firebaseClient.entities.Ride.list("-created_date", 500),
-      firebaseClient.entities.DriverProfile.list("-created_date", 200),
-      adminApi.rideFinancials(),
-    ]).then(([r, d, financials]) => { setRides(r); setDrivers(d); setRideFinancials(financials || { summary: {} }); setLoading(false); });
-  }, []);
+      adminApi.listAccounts("driver"),
+      adminApi.rideFinancials({ includeTestDrivers }),
+    ]).then(([r, d, financials]) => {
+      const driverAccounts = d.accounts || [];
+      const testDriverIds = new Set(driverAccounts.filter((driver) => driver.isTestDriver).map((driver) => driver.userId));
+      setRides(r.filter((ride) => includeTestDrivers || !testDriverIds.has(String(ride.driver_id || ride.driverId || ""))));
+      setDrivers(includeTestDrivers ? driverAccounts : driverAccounts.filter((driver) => !driver.isTestDriver));
+      setRideFinancials(financials || { summary: {} });
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [includeTestDrivers]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -50,13 +59,13 @@ export default function Analytics() {
 
   // Driver status
   const driverStatusData = ["Active","Inactive","Suspended","Pending"].map(s => ({
-    name: s, count: drivers.filter(d => d.status === s).length
+    name: s, count: drivers.filter(d => String(d.accountStatus || d.status || "").toLowerCase() === s.toLowerCase() || (s === "Pending" && d.approvalStatus === "pending")).length
   })).filter(d => d.count > 0);
 
   // Top drivers by rides
-  const topDrivers = [...drivers].sort((a, b) => (b.total_rides || 0) - (a.total_rides || 0)).slice(0, 8).map(d => ({
-    name: d.full_name?.split(" ")[0] || "?",
-    rides: d.total_rides || 0,
+  const topDrivers = [...drivers].sort((a, b) => (b.totalRides || b.total_rides || 0) - (a.totalRides || a.total_rides || 0)).slice(0, 8).map(d => ({
+    name: (d.fullName || d.full_name || "?").split(" ")[0],
+    rides: d.totalRides || d.total_rides || 0,
     earnings: d.total_earnings || 0,
   }));
 
@@ -84,6 +93,7 @@ export default function Analytics() {
         <h1 className="text-2xl font-bold text-white">Analytics</h1>
         <p className="text-muted-foreground text-sm mt-0.5">Platform performance overview</p>
       </div>
+      <label className="inline-flex w-fit items-center gap-2 rounded-xl border border-hy3n-border bg-hy3n-surface px-3 py-2.5 text-sm text-white"><input type="checkbox" checked={includeTestDrivers} onChange={(event) => setIncludeTestDrivers(event.target.checked)} /> Include Test Driver data</label>
 
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard label="Completed Ride Charges" value={`GHS ${totalRideCharge.toLocaleString()}`} icon={TrendingUp} color="bg-hy3n-gold" sub="Final fares; not payment collection" />
@@ -92,7 +102,7 @@ export default function Analytics() {
         <StatCard label="Avg Rating" value={avgRating} icon={Star} color="bg-hy3n-red" sub="Across all rides" />
       </div>
 
-      <RideFinancialLedger compact />
+      <RideFinancialLedger compact includeTestDrivers={includeTestDrivers} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <ChartCard title="Rides by Status">

@@ -123,6 +123,7 @@ export const adminApi = {
     if (filters.dateFrom) query.set("dateFrom", filters.dateFrom);
     if (filters.dateTo) query.set("dateTo", filters.dateTo);
     if (filters.status) query.set("status", filters.status);
+    if (filters.includeTestDrivers) query.set("includeTestDrivers", "true");
     const suffix = query.toString();
     return request(`/api/admin/driver-fees${suffix ? `?${suffix}` : ""}`);
   },
