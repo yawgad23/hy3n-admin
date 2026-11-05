@@ -46,6 +46,7 @@ function documentItems(driver) {
 function DocumentReview({ driver, onClose, onApprove, onReject, busy }) {
   const documents = documentItems(driver);
   const approved = driver.approvalStatus === "approved";
+  const isTestDriver = driver.isTestDriver === true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
@@ -78,15 +79,17 @@ function DocumentReview({ driver, onClose, onApprove, onReject, busy }) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                No uploaded verification documents are available for this Driver. Do not approve until the Driver submits their required documents.
+              <div className={`rounded-xl border p-4 text-sm ${isTestDriver ? "border-purple-500/30 bg-purple-500/10 text-purple-100" : "border-amber-500/30 bg-amber-500/10 text-amber-100"}`}>
+                {isTestDriver
+                  ? "This is a Test Driver account. Test accounts may be approved without production verification documents for supervised testing only."
+                  : "No uploaded verification documents are available for this Driver. Do not approve until the Driver submits their required documents."}
               </div>
             )}
           </div>
 
           <div className="flex flex-wrap items-center gap-3 border-t border-hy3n-border pt-5">
             {driver.phone && <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-2 rounded-xl border border-hy3n-border px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5">Call Driver</a>}
-            {!approved && <button disabled={busy || !documents.length} onClick={onApprove} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"><CheckCircle2 size={16} /> {busy ? "Saving…" : "Approve Driver"}</button>}
+            {!approved && <button disabled={busy || (!isTestDriver && !documents.length)} onClick={onApprove} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"><CheckCircle2 size={16} /> {busy ? "Saving…" : "Approve Driver"}</button>}
             {!approved && <button disabled={busy} onClick={onReject} className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"><UserRoundX size={16} /> Reject</button>}
             {approved && <span className="inline-flex items-center gap-2 text-sm font-medium text-emerald-300"><BadgeCheck size={18} /> Approved Driver</span>}
           </div>
@@ -143,7 +146,10 @@ export default function Drivers() {
   };
 
   const approve = (driver) => {
-    if (!window.confirm(`Approve ${driver.fullName}? Confirm that the identity, licence, vehicle, insurance, and roadworthy documents have been reviewed.`)) return;
+    const confirmation = driver.isTestDriver
+      ? `Approve ${driver.fullName} as a Test Driver? This account is for supervised testing and may not have production verification documents.`
+      : `Approve ${driver.fullName}? Confirm that the identity, licence, vehicle, insurance, and roadworthy documents have been reviewed.`;
+    if (!window.confirm(confirmation)) return;
     run(`approve-${driver.userId}`, async () => { await adminApi.setDriverApproval(driver.userId, "approved"); setReviewing(null); });
   };
   const reject = (driver) => {
