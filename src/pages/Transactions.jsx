@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
+import { adminApi } from "@/api/adminApi";
 import RideFinancialLedger from "@/components/RideFinancialLedger";
 import {
   DollarSign, CheckSquare, Wallet, CreditCard, Car, RefreshCw,
@@ -13,6 +14,7 @@ const TYPE_CONFIG = {
   payout: { label: "Payout", icon: CreditCard, color: "text-purple-400 bg-purple-500/10 border-purple-500/20" },
   payment: { label: "MoMo Payment", icon: DollarSign, color: "text-cyan-400 bg-cyan-500/10 border-cyan-500/20" },
   wallet_tx: { label: "Wallet Tx", icon: FileText, color: "text-indigo-400 bg-indigo-500/10 border-indigo-500/20" },
+  wallet_topup: { label: "Rider Wallet Top-up", icon: ArrowUpRight, color: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20" },
 };
 
 const STATUS_CONFIG = {
@@ -57,9 +59,10 @@ export default function Transactions() {
       const commissions = await safeFetch("Commission",      () => firebaseClient.entities.Commission?.list("-created_date", 300));
       const payouts     = await safeFetch("Payout",          () => firebaseClient.entities.Payout?.list("-created_date", 300));
       const payments    = await safeFetch("Payment",         () => firebaseClient.entities.Payment?.list("-created_date", 300));
-      const walletTxs   = await safeFetch("WalletTransaction", () => firebaseClient.entities.WalletTransaction?.list("-created_date", 300));
+      const walletTopUpResult = await safeFetch("WalletTopUps", () => adminApi.walletTopUps());
+      const walletTxs = walletTopUpResult?.records || [];
 
-      console.log("[Transactions] Summary — dailyFees:", dailyFees.length, "commissions:", commissions.length, "payouts:", payouts.length, "payments:", payments.length, "walletTxs:", walletTxs.length);
+      console.log("[Transactions] Summary — dailyFees:", dailyFees.length, "commissions:", commissions.length, "payouts:", payouts.length, "payments:", payments.length, "walletTopUps:", walletTxs.length);
 
       const unified = [];
 
@@ -201,24 +204,29 @@ export default function Transactions() {
       // 5. Wallet Transactions
       for (const item of walletTxs) {
         try {
-          const rawDate = item.created_date || item.createdAt || item.timestamp;
+          const rawDate = item.date || item.created_date || item.createdAt || item.timestamp;
           const dateISO = toISO(rawDate);
           const dateObj = toDate(rawDate) || new Date(0);
           unified.push({
             id: `wallet_tx_${item.id}`,
             rawId: item.id,
-            type: "wallet_tx",
+            type: "wallet_topup",
             amount: Number(item.amount || 0),
-            user: item.user_name || `User (${item.user_id?.slice(0, 6) || "—"})`,
-            phone: item.phone || "",
-            status: (item.status || "completed").toLowerCase(),
+            user: item.rider_name || item.payer_display_name || `Rider (${item.user_id?.slice(0, 6) || "—"})`,
+            phone: item.rider_phone || item.phone || "",
+            status: (item.status || "processing").toLowerCase(),
             dateStr: dateISO,
             dateObj,
             reference: item.reference || item.transaction_id || item.id,
             details: {
-              TxType: item.tx_type || item.type || "—",
+              PaymentPurpose: item.payment_purpose || "wallet_top_up",
               Description: item.description || "—",
-              BalanceAfter: item.balance_after !== undefined ? `GH₵${item.balance_after}` : "—",
+              MoMoNetwork: item.momo_network || "—",
+              MoMoNumber: item.momo_number || item.rider_phone || "—",
+              ProviderRequestedAmount: item.provider_requested_amount !== undefined ? `GH₵${item.provider_requested_amount}` : "—",
+              HubtelTransactionId: item.hubtel_transaction_id || "—",
+              HubtelStatus: item.hubtel_status || "—",
+              ConfirmedAt: item.confirmed_paid_at || item.settled_at || "—",
               Timestamp: fmtDate(rawDate),
             },
             raw: item,
@@ -302,6 +310,9 @@ export default function Transactions() {
       count: filtered.length,
       commissionFeesTotal,
       payoutsTotal,
+      walletTopUpsTotal: filtered
+        .filter(tx => tx.type === "wallet_topup" && ["paid", "completed", "success", "confirmed"].includes(tx.status))
+        .reduce((total, tx) => total + tx.amount, 0),
     };
   }, [filtered]);
 
@@ -411,6 +422,7 @@ export default function Transactions() {
             <option value="payout">Driver Payouts</option>
             <option value="payment">MoMo & Public Payments</option>
             <option value="wallet_tx">Wallet Transactions</option>
+            <option value="wallet_topup">Rider Wallet Top-ups</option>
           </select>
 
           {/* Status Filter */}

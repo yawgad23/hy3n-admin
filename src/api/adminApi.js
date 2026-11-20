@@ -184,6 +184,15 @@ export const adminApi = {
     return request(`/api/admin/financials/rides${suffix ? `?${suffix}` : ""}`);
   },
 
+  walletTopUps(filters = {}) {
+    const query = new URLSearchParams();
+    if (filters.dateFrom) query.set("dateFrom", filters.dateFrom);
+    if (filters.dateTo) query.set("dateTo", filters.dateTo);
+    if (filters.status) query.set("status", filters.status);
+    const suffix = query.toString();
+    return request(`/api/admin/financials/wallet-topups${suffix ? `?${suffix}` : ""}`);
+  },
+
   latestFinancialReconciliation() {
     return request('/api/admin/financials/reconciliation/latest');
   },
