@@ -1,19 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Archive,
-  Car,
-  FileText,
-  Pencil,
-  Plus,
-  Search,
-  ShieldCheck,
-} from "lucide-react";
+import { Car, FileText, Pencil, Plus, Search, ShieldCheck } from "lucide-react";
 import { adminApi } from "@/api/adminApi";
 import {
   LifecycleAuditDialog,
   RetentionAudit,
 } from "@/components/RetentionAudit";
 import AccountCorrectionDialog from "@/components/AccountCorrectionDialog";
+import AccountLifecycleActions from "@/components/AccountLifecycleActions";
+import { accountAccessLabel } from "@/lib/accountLifecycle";
 import DriverDocumentReview from "@/components/DriverDocumentReview";
 import { driverReferenceSummary } from "@/lib/driverVerification";
 import {
@@ -154,17 +148,6 @@ export default function Drivers() {
       });
       setShowCreate(false);
     });
-  };
-  const deactivate = (driver) => {
-    if (
-      !window.confirm(
-        `Deactivate ${driver.fullName}? Their login and Driver availability will end immediately. Their profile, verification documents, trip, payment, and safety records will remain retained for review.`,
-      )
-    )
-      return;
-    run(`deactivate-${driver.userId}`, () =>
-      adminApi.deactivateAccount(driver.userId, "driver"),
-    );
   };
   const toggleFeeBypass = (driver) => {
     const active = driver.driverFeeBypass?.active === true;
@@ -337,7 +320,7 @@ export default function Drivers() {
           <option value="all">All accounts</option>
           <option value="active">Approved &amp; enabled</option>
           <option value="inactive">Inactive (retained)</option>
-          <option value="suspended">Suspended</option>
+          <option value="suspended">Blocked / suspended</option>
           <option value="pending">Awaiting approval</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
@@ -386,7 +369,7 @@ export default function Drivers() {
                         <span
                           className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyle(driver.accountStatus)}`}
                         >
-                          Account {driver.accountStatus}
+                          Account {accountAccessLabel(driver.accountStatus)}
                         </span>
                       )}
                     {driver.isTestDriver && (
@@ -524,35 +507,29 @@ export default function Drivers() {
                     <ShieldCheck size={13} />{" "}
                     {feeBypassActive ? "Remove fee bypass" : "Bypass fee today"}
                   </button>
-                  <button
-                    disabled={busy === `status-${driver.userId}`}
-                    onClick={() =>
+                </div>
+                <div className="mt-4 border-t border-hy3n-border pt-3">
+                  <p className="mb-2 text-xs font-semibold text-white">
+                    Account access
+                  </p>
+                  <AccountLifecycleActions
+                    account={driver}
+                    role="driver"
+                    busy={busy}
+                    onAction={(action) =>
                       run(`status-${driver.userId}`, () =>
                         adminApi.setAccountStatus(
                           driver.userId,
                           "driver",
-                          driver.accountStatus === "active"
-                            ? "suspended"
-                            : "active",
+                          action.status,
                         ),
                       )
                     }
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs font-medium text-white hover:bg-white/5 disabled:opacity-50"
-                  >
-                    <ShieldCheck size={13} />{" "}
-                    {driver.accountStatus === "active"
-                      ? "Suspend login"
-                      : "Restore login"}
-                  </button>
-                  {driver.accountStatus === "active" && (
-                    <button
-                      disabled={busy === `deactivate-${driver.userId}`}
-                      onClick={() => deactivate(driver)}
-                      className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"
-                    >
-                      <Archive size={13} /> Deactivate
-                    </button>
-                  )}
+                  />
+                  <p className="mt-2 text-[11px] text-muted-foreground">
+                    Block / suspend restricts login without requesting deletion.
+                    Release enables login again, not document approval.
+                  </p>
                 </div>
               </article>
             );
