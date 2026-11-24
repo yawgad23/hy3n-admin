@@ -447,7 +447,9 @@ export default function Drivers() {
                   className="mt-4 rounded-xl border border-hy3n-gold/30 bg-hy3n-gold/5 p-3"
                 >
                   <p className="text-sm font-semibold text-white">
-                    Administrator decision
+                    {approval.status === "approved"
+                      ? "Application approved"
+                      : "Administrator decision"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {approval.status === "approved"
@@ -456,35 +458,42 @@ export default function Drivers() {
                         ? "This application is rejected and cannot take rides. Review any corrected documents before approval."
                         : "Awaiting your decision — this Driver is not approved to take rides."}
                   </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      disabled={!approval.decisionRequired}
-                      onClick={() => openReview(driver, "approve")}
-                      className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50"
-                    >
-                      Approve Driver
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openReview(driver, "reject")}
-                      className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20"
-                    >
-                      Reject Driver
-                    </button>
-                  </div>
-                  <p className="mt-2 text-[11px] text-muted-foreground">
-                    Opens the fresh document checklist. Approval requires valid
-                    required files and your confirmation; rejection requires
-                    your reason.
-                  </p>
+                  {approval.decisionRequired && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={!approval.decisionRequired}
+                        onClick={() => openReview(driver, "approve")}
+                        className="rounded-lg border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:opacity-50"
+                      >
+                        Approve Driver
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openReview(driver, "reject")}
+                        className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20"
+                      >
+                        Reject Driver
+                      </button>
+                    </div>
+                  )}
+                  {approval.decisionRequired && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Opens the fresh document checklist. Approval requires
+                      valid required files and your confirmation; rejection
+                      requires your reason.
+                    </p>
+                  )}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button
                     onClick={() => openReview(driver)}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-gold/40 bg-hy3n-gold/10 px-3 py-2 text-xs font-medium text-hy3n-gold hover:bg-hy3n-gold/20"
                   >
-                    <FileText size={13} /> Review &amp; approve
+                    <FileText size={13} />{" "}
+                    {approval.status === "approved"
+                      ? "View documents"
+                      : "Review & approve"}
                   </button>
                   <button
                     disabled={busy === `correct-${driver.userId}`}

@@ -133,6 +133,12 @@ export default function DriverDocumentReview({
   };
 
   const decide = async (approvalStatus) => {
+    if (review?.manifest.approvalStatus === "approved") {
+      setError(
+        "This application is already approved. Use the separate account suspension control if needed.",
+      );
+      return;
+    }
     let payload;
     try {
       payload = driverDecisionPayload(review, approvalStatus, reason);
@@ -205,13 +211,13 @@ export default function DriverDocumentReview({
   };
 
   const account = review?.account || driver;
-  const approved = review?.manifest.approvalStatus === "approved";
+  const approvalDisplay = driverApprovalDisplay(account);
+  const approved = approvalDisplay.status === "approved";
   const approvalEnabled =
     !checking &&
     !saving &&
     canApproveDriverReview(review, unavailableImages.length > 0);
-  const canDecide = Boolean(review && !checking && !saving);
-  const approvalDisplay = driverApprovalDisplay(account);
+  const canDecide = Boolean(review && !checking && !saving && !approved);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-2 sm:p-4">
@@ -433,7 +439,7 @@ export default function DriverDocumentReview({
               )}
             </>
           )}
-          {rejecting && (
+          {rejecting && !approved && (
             <label className="block text-sm text-white">
               Reason for rejection
               <textarea
@@ -460,7 +466,9 @@ export default function DriverDocumentReview({
         >
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm font-semibold text-white">
-              Administrator decision
+              {approved
+                ? "Approved application — document view"
+                : "Administrator decision"}
             </p>
             <span
               className={`text-xs font-semibold ${approved ? "text-emerald-300" : "text-amber-200"}`}
@@ -470,48 +478,52 @@ export default function DriverDocumentReview({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              disabled={rejecting || !approvalEnabled}
-              onClick={() => decide("approved")}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CheckCircle2 size={15} />
-              {saving && !rejecting ? "Saving…" : "Approve Driver"}
-            </button>
-            <button
-              type="button"
-              disabled={!canDecide || rejecting}
-              onClick={() => {
-                setRejecting(true);
-                setError("");
-              }}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50"
-            >
-              <UserRoundX size={15} /> Reject Driver
-            </button>
-            {rejecting && (
+            {!approved && (
               <>
                 <button
                   type="button"
-                  disabled={
-                    !canDecide ||
-                    reason.trim().length < 3 ||
-                    reason.trim().length > 500
-                  }
-                  onClick={() => decide("rejected")}
-                  className="rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2.5 text-xs font-semibold text-red-200 disabled:opacity-50"
+                  disabled={rejecting || !approvalEnabled}
+                  onClick={() => decide("approved")}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-sm font-semibold text-emerald-200 hover:bg-emerald-500/25 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {saving ? "Saving…" : "Confirm rejection"}
+                  <CheckCircle2 size={15} />
+                  {saving && !rejecting ? "Saving…" : "Approve Driver"}
                 </button>
                 <button
                   type="button"
-                  disabled={saving}
-                  onClick={() => setRejecting(false)}
-                  className="rounded-xl border border-hy3n-border px-3 py-2.5 text-xs text-white disabled:opacity-50"
+                  disabled={!canDecide || rejecting}
+                  onClick={() => {
+                    setRejecting(true);
+                    setError("");
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/20 disabled:opacity-50"
                 >
-                  Cancel
+                  <UserRoundX size={15} /> Reject Driver
                 </button>
+                {rejecting && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={
+                        !canDecide ||
+                        reason.trim().length < 3 ||
+                        reason.trim().length > 500
+                      }
+                      onClick={() => decide("rejected")}
+                      className="rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2.5 text-xs font-semibold text-red-200 disabled:opacity-50"
+                    >
+                      {saving ? "Saving…" : "Confirm rejection"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => setRejecting(false)}
+                      className="rounded-xl border border-hy3n-border px-3 py-2.5 text-xs text-white disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
               </>
             )}
             {account.phone && (
@@ -532,14 +544,14 @@ export default function DriverDocumentReview({
             </button>
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            {checking
-              ? "Decisions are disabled until the fresh server check completes."
-              : !review
-                ? "Refresh required — the current document revision is not confirmed."
-                : rejecting
-                  ? "Enter the rejection reason above, then confirm. No decision has been saved yet."
-                  : approved
-                    ? "Already approved. Reject Driver lets you record a manual rejection with a reason."
+            {approved
+              ? "Already approved. You can inspect the saved documents here. Suspension is a separate account action."
+              : checking
+                ? "Decisions are disabled until the fresh server check completes."
+                : !review
+                  ? "Refresh required — the current document revision is not confirmed."
+                  : rejecting
+                    ? "Enter the rejection reason above, then confirm. No decision has been saved yet."
                     : unavailableImages.length
                       ? "An image preview failed. Refresh before approval."
                       : !review.manifest.documentsComplete &&

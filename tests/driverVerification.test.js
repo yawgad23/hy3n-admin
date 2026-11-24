@@ -57,6 +57,10 @@ describe("fresh admin Driver document review", () => {
     expect(canApproveDriverReview(parseDriverReview(fixture(6, "approved"), uid))).toBe(false);
     expect(canApproveDriverReview(parseDriverReview(fixture(), uid), true)).toBe(false);
   });
+  it.each(["approved", "rejected"])("keeps an approved review read-only for a %s decision", (decision) => {
+    const review = parseDriverReview(fixture(6, "approved"), uid);
+    expect(() => driverDecisionPayload(review, decision, "A meaningful reason")).toThrow("already approved");
+  });
   it("preserves only a strict server-labelled supervised Test Driver exception", () => {
     const data = fixture(0); data.account.isTestDriver = true;
     expect(canApproveDriverReview(parseDriverReview(data, uid))).toBe(true);

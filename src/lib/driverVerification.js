@@ -58,6 +58,7 @@ export function canApproveDriverReview(review, imagesUnavailable = false) {
 
 export function driverDecisionPayload(review, approvalStatus, reason = "") {
   if (!review || !["approved", "rejected"].includes(approvalStatus)) throw new Error("Refresh the Driver review before deciding.");
+  if (review.manifest.approvalStatus === "approved") throw new Error("This application is already approved. Suspension is a separate account action.");
   if (approvalStatus === "approved" && !canApproveDriverReview(review)) throw new Error("All six required files must be valid before approval.");
   const trimmedReason = reason.trim();
   if (approvalStatus === "rejected" && (trimmedReason.length < 3 || trimmedReason.length > 500)) {
