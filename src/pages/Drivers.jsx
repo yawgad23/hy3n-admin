@@ -1,22 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
-  BadgeCheck,
   Car,
-  CheckCircle2,
-  ExternalLink,
   FileText,
   Pencil,
   Plus,
   Search,
   ShieldCheck,
-  UserRoundCheck,
-  UserRoundX,
-  X,
 } from "lucide-react";
 import { adminApi } from "@/api/adminApi";
 import { LifecycleAuditDialog, RetentionAudit } from "@/components/RetentionAudit";
 import AccountCorrectionDialog from "@/components/AccountCorrectionDialog";
+import DriverDocumentReview from "@/components/DriverDocumentReview";
+import { driverReferenceSummary } from "@/lib/driverVerification";
 
 const serviceTypes = ["car", "okada", "delivery"];
 
@@ -28,81 +24,11 @@ function statusStyle(status) {
     : "text-emerald-300 bg-emerald-500/10 border-emerald-500/30";
 }
 
-function documentItems(driver) {
-  const documents = driver.documents || {};
-  return [
-    ["Profile photo", documents.profilePhoto],
-    ["Ghana Card — front", documents.ghanaCardFront],
-    ["Ghana Card — back", documents.ghanaCardBack],
-    ["Driver’s licence — front", documents.driverLicenseFront],
-    ["Driver’s licence — back", documents.driverLicenseBack],
-    ["Vehicle photo", documents.vehiclePhoto],
-    ["Vehicle registration", documents.vehicleRegistration],
-    ["Insurance", documents.insurance],
-    ["Roadworthy certificate", documents.roadworthy],
-  ].filter(([, url]) => Boolean(url));
-}
-
-function DocumentReview({ driver, onClose, onApprove, onReject, busy }) {
-  const documents = documentItems(driver);
-  const approved = driver.approvalStatus === "approved";
-  const isTestDriver = driver.isTestDriver === true;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-      <section className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-hy3n-border bg-hy3n-surface shadow-2xl">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b border-hy3n-border bg-hy3n-surface px-6 py-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-hy3n-gold">Driver verification</p>
-            <h2 className="mt-1 text-lg font-bold text-white">{driver.fullName}</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">Review identity, licence, vehicle, and insurance before approval.</p>
-          </div>
-          <button onClick={onClose} aria-label="Close verification review" className="rounded-lg p-2 text-muted-foreground hover:bg-white/5 hover:text-white"><X size={18} /></button>
-        </header>
-
-        <div className="space-y-5 p-6">
-          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-muted-foreground">Service</p><p className="mt-1 capitalize text-white">{driver.serviceType}</p></div>
-            <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-muted-foreground">Vehicle</p><p className="mt-1 break-words text-white">{driver.vehicle || "Not recorded"}</p></div>
-            <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-muted-foreground">Plate</p><p className="mt-1 text-white">{driver.plate || "Not recorded"}</p></div>
-            <div className="rounded-xl bg-white/5 p-3"><p className="text-xs text-muted-foreground">Contact</p><p className="mt-1 break-all text-white">{driver.phone || driver.email || "Not recorded"}</p></div>
-          </div>
-
-          <div>
-            <div className="mb-3 flex items-center gap-2"><FileText size={16} className="text-hy3n-gold" /><h3 className="font-semibold text-white">Submitted documents</h3></div>
-            {documents.length ? (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {documents.map(([label, url]) => (
-                  <a key={label} href={url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-xl border border-hy3n-border bg-hy3n-bg p-3 text-sm text-white transition hover:border-hy3n-gold/60 hover:bg-white/5">
-                    <span>{label}</span><ExternalLink size={15} className="shrink-0 text-hy3n-gold" />
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <div className={`rounded-xl border p-4 text-sm ${isTestDriver ? "border-purple-500/30 bg-purple-500/10 text-purple-100" : "border-amber-500/30 bg-amber-500/10 text-amber-100"}`}>
-                {isTestDriver
-                  ? "This is a Test Driver account. Test accounts may be approved without production verification documents for supervised testing only."
-                  : "No uploaded verification documents are available for this Driver. Do not approve until the Driver submits their required documents."}
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 border-t border-hy3n-border pt-5">
-            {driver.phone && <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-2 rounded-xl border border-hy3n-border px-4 py-2.5 text-sm font-medium text-white hover:bg-white/5">Call Driver</a>}
-            {!approved && <button disabled={busy || (!isTestDriver && !documents.length)} onClick={onApprove} className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-sm font-semibold text-emerald-300 hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"><CheckCircle2 size={16} /> {busy ? "Saving…" : "Approve Driver"}</button>}
-            {!approved && <button disabled={busy} onClick={onReject} className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"><UserRoundX size={16} /> Reject</button>}
-            {approved && <span className="inline-flex items-center gap-2 text-sm font-medium text-emerald-300"><BadgeCheck size={18} /> Approved Driver</span>}
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
 export default function Drivers() {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [decisionNotice, setDecisionNotice] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showTestDrivers, setShowTestDrivers] = useState(false);
@@ -145,17 +71,15 @@ export default function Drivers() {
     finally { setBusy(""); }
   };
 
-  const approve = (driver) => {
-    const confirmation = driver.isTestDriver
-      ? `Approve ${driver.fullName} as a Test Driver? This account is for supervised testing and may not have production verification documents.`
-      : `Approve ${driver.fullName}? Confirm that the identity, licence, vehicle, insurance, and roadworthy documents have been reviewed.`;
-    if (!window.confirm(confirmation)) return;
-    run(`approve-${driver.userId}`, async () => { await adminApi.setDriverApproval(driver.userId, "approved"); setReviewing(null); });
-  };
-  const reject = (driver) => {
-    const reason = window.prompt("Reason for rejecting this Driver application:", "");
-    if (reason === null) return;
-    run(`reject-${driver.userId}`, async () => { await adminApi.setDriverApproval(driver.userId, "rejected", reason); setReviewing(null); });
+  const decisionConfirmed = async (account) => {
+    setDecisionNotice(account.approvalStatus === "approved"
+      ? `${account.fullName} approved — confirmed by the server.`
+      : `${account.fullName} rejected — ${account.rejectionReason || "See the review for the saved reason."}`);
+    setReviewing(account);
+    setDrivers((current) => current.map((driver) => driver.userId === account.userId ? account : driver));
+    // The decision response confirms success independently of a list refresh.
+    // A failed list refresh reports its own error, never retries the decision.
+    await load();
   };
   const createDriver = async (event) => {
     event.preventDefault();
@@ -228,10 +152,11 @@ export default function Drivers() {
         </div>
         <button disabled={busy === "all-drivers-fee-bypass"} onClick={toggleAllDriversFeeBypass} className={`inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold disabled:opacity-50 ${globalFeeBypass?.active ? "border-amber-500/40 text-amber-200 hover:bg-amber-500/10" : "border-hy3n-gold/50 bg-hy3n-gold/10 text-hy3n-gold hover:bg-hy3n-gold/20"}`}><ShieldCheck size={16} />{busy === "all-drivers-fee-bypass" ? "Saving…" : globalFeeBypass?.active ? "Remove all-Driver pass" : "Pass fee for all Drivers today"}</button>
       </div>
+      {decisionNotice && <div role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">{decisionNotice}</div>}
       {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</div>}
       <div className="flex flex-col gap-3 sm:flex-row"><label className="relative flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search Driver, phone, vehicle, plate, or type" className="w-full rounded-xl border border-hy3n-border bg-hy3n-surface py-2.5 pl-9 pr-3 text-sm text-white outline-none focus:border-hy3n-gold/60" /></label><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-hy3n-border bg-hy3n-surface px-3 py-2.5 text-sm text-white outline-none"><option value="all">All accounts</option><option value="active">Active</option><option value="inactive">Inactive (retained)</option><option value="suspended">Suspended</option><option value="pending">Pending verification</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select><label className="inline-flex items-center gap-2 rounded-xl border border-hy3n-border bg-hy3n-surface px-3 py-2.5 text-sm text-white"><input type="checkbox" checked={showTestDrivers} onChange={(event) => setShowTestDrivers(event.target.checked)} /> Show test Drivers</label></div>
-      {loading ? <div className="flex h-48 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-hy3n-gold/30 border-t-hy3n-gold" /></div> : <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">{filtered.map((driver) => { const documents = documentItems(driver); const feeBypassActive = driver.driverFeeBypass?.active === true; return <article key={driver.userId} className={`rounded-2xl border bg-hy3n-surface p-5 ${driver.isTestDriver ? "border-purple-500/40" : "border-hy3n-border"}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold text-white">{driver.fullName}</h2><p className="mt-0.5 truncate text-xs text-muted-foreground">{driver.email || driver.phone || "No contact details"}</p></div><div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyle(driver.accountStatus)}`}>{driver.accountStatus}</span><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${driver.approvalStatus === "approved" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>{driver.approvalStatus || "pending"}</span>{driver.isTestDriver && <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-200">Test Driver</span>}</div></div><RetentionAudit audit={driver.retentionAudit} onView={() => openAudit(driver)} className="mt-3" /><div className="mt-4 grid grid-cols-2 gap-3 text-xs"><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Driver type</p><p className="mt-1 capitalize text-white">{driver.serviceType}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Vehicle</p><p className="mt-1 truncate text-white">{driver.vehicle || "Not recorded"}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Plate</p><p className="mt-1 text-white">{driver.plate || "Not recorded"}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Verification files</p><p className="mt-1 text-white">{documents.length} submitted</p></div></div>{feeBypassActive && <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"><span className="font-semibold">Fee gate bypass active today.</span> {driver.driverFeeBypass.reason}</div>}<div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setReviewing(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-gold/40 bg-hy3n-gold/10 px-3 py-2 text-xs font-medium text-hy3n-gold hover:bg-hy3n-gold/20"><FileText size={13} /> Review documents</button><button disabled={busy === `correct-${driver.userId}`} onClick={() => setCorrectionAccount(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-gold/40 px-3 py-2 text-xs text-hy3n-gold hover:bg-hy3n-gold/10 disabled:opacity-50"><Pencil size={13} /> Correct details</button><button onClick={() => openAudit(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs text-white hover:bg-white/5">Audit</button>{driver.phone && <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs text-white hover:bg-white/5">Call</a>}<button disabled={busy === `fee-bypass-${driver.userId}`} onClick={() => toggleFeeBypass(driver)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50 ${feeBypassActive ? "border-amber-500/30 text-amber-200 hover:bg-amber-500/10" : "border-hy3n-border text-white hover:bg-white/5"}`}><ShieldCheck size={13} /> {feeBypassActive ? "Remove fee bypass" : "Bypass fee today"}</button><button disabled={busy === `status-${driver.userId}`} onClick={() => run(`status-${driver.userId}`, () => adminApi.setAccountStatus(driver.userId, "driver", driver.accountStatus === "active" ? "suspended" : "active"))} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs font-medium text-white hover:bg-white/5 disabled:opacity-50"><ShieldCheck size={13} /> {driver.accountStatus === "active" ? "Suspend" : "Restore"}</button>{driver.accountStatus === "active" && <button disabled={busy === `deactivate-${driver.userId}`} onClick={() => deactivate(driver)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"><Archive size={13} /> Deactivate</button>}</div></article>; })}{!filtered.length && <div className="col-span-full rounded-2xl border border-hy3n-border bg-hy3n-surface py-14 text-center text-sm text-muted-foreground">No Driver accounts match these filters.</div>}</div>}
-      {reviewing && <DocumentReview driver={reviewing} busy={busy === `approve-${reviewing.userId}` || busy === `reject-${reviewing.userId}`} onClose={() => setReviewing(null)} onApprove={() => approve(reviewing)} onReject={() => reject(reviewing)} />}
+      {loading ? <div className="flex h-48 items-center justify-center"><div className="h-8 w-8 animate-spin rounded-full border-4 border-hy3n-gold/30 border-t-hy3n-gold" /></div> : <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">{filtered.map((driver) => { const feeBypassActive = driver.driverFeeBypass?.active === true; return <article key={driver.userId} className={`rounded-2xl border bg-hy3n-surface p-5 ${driver.isTestDriver ? "border-purple-500/40" : "border-hy3n-border"}`}><div className="flex items-start justify-between gap-3"><div className="min-w-0"><h2 className="truncate font-semibold text-white">{driver.fullName}</h2><p className="mt-0.5 truncate text-xs text-muted-foreground">{driver.email || driver.phone || "No contact details"}</p></div><div className="flex flex-wrap justify-end gap-2"><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyle(driver.accountStatus)}`}>{driver.accountStatus}</span><span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${driver.approvalStatus === "approved" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : "border-amber-500/30 bg-amber-500/10 text-amber-200"}`}>{driver.approvalStatus || "pending"}</span>{driver.isTestDriver && <span className="rounded-full border border-purple-500/40 bg-purple-500/10 px-2.5 py-1 text-xs font-medium text-purple-200">Test Driver</span>}</div></div><RetentionAudit audit={driver.retentionAudit} onView={() => openAudit(driver)} className="mt-3" /><div className="mt-4 grid grid-cols-2 gap-3 text-xs"><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Driver type</p><p className="mt-1 capitalize text-white">{driver.serviceType}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Vehicle</p><p className="mt-1 truncate text-white">{driver.vehicle || "Not recorded"}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Plate</p><p className="mt-1 text-white">{driver.plate || "Not recorded"}</p></div><div className="rounded-xl bg-white/5 p-3"><p className="text-muted-foreground">Verification files</p><p className="mt-1 text-white">{driverReferenceSummary(driver)}</p></div></div>{driver.approvalStatus === "rejected" && driver.rejectionReason && <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"><span className="font-semibold">Rejection reason:</span> {driver.rejectionReason}</div>}{feeBypassActive && <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100"><span className="font-semibold">Fee gate bypass active today.</span> {driver.driverFeeBypass.reason}</div>}<div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setReviewing(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-gold/40 bg-hy3n-gold/10 px-3 py-2 text-xs font-medium text-hy3n-gold hover:bg-hy3n-gold/20"><FileText size={13} /> Review &amp; approve</button><button disabled={busy === `correct-${driver.userId}`} onClick={() => setCorrectionAccount(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-gold/40 px-3 py-2 text-xs text-hy3n-gold hover:bg-hy3n-gold/10 disabled:opacity-50"><Pencil size={13} /> Correct details</button><button onClick={() => openAudit(driver)} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs text-white hover:bg-white/5">Audit</button>{driver.phone && <a href={`tel:${driver.phone}`} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs text-white hover:bg-white/5">Call</a>}<button disabled={busy === `fee-bypass-${driver.userId}`} onClick={() => toggleFeeBypass(driver)} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium disabled:opacity-50 ${feeBypassActive ? "border-amber-500/30 text-amber-200 hover:bg-amber-500/10" : "border-hy3n-border text-white hover:bg-white/5"}`}><ShieldCheck size={13} /> {feeBypassActive ? "Remove fee bypass" : "Bypass fee today"}</button><button disabled={busy === `status-${driver.userId}`} onClick={() => run(`status-${driver.userId}`, () => adminApi.setAccountStatus(driver.userId, "driver", driver.accountStatus === "active" ? "suspended" : "active"))} className="inline-flex items-center gap-1.5 rounded-lg border border-hy3n-border px-3 py-2 text-xs font-medium text-white hover:bg-white/5 disabled:opacity-50"><ShieldCheck size={13} /> {driver.accountStatus === "active" ? "Suspend" : "Restore"}</button>{driver.accountStatus === "active" && <button disabled={busy === `deactivate-${driver.userId}`} onClick={() => deactivate(driver)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-500/30 px-3 py-2 text-xs font-medium text-amber-200 hover:bg-amber-500/10 disabled:opacity-50"><Archive size={13} /> Deactivate</button>}</div></article>; })}{!filtered.length && <div className="col-span-full rounded-2xl border border-hy3n-border bg-hy3n-surface py-14 text-center text-sm text-muted-foreground">No Driver accounts match these filters.</div>}</div>}
+      {reviewing && <DriverDocumentReview key={reviewing.userId} driver={reviewing} onClose={() => setReviewing(null)} onDecision={decisionConfirmed} />}
       {correctionAccount && <AccountCorrectionDialog account={correctionAccount} role="driver" saving={busy === `correct-${correctionAccount.userId}`} onClose={() => setCorrectionAccount(null)} onSave={saveCorrection} />}
       {auditAccount && <LifecycleAuditDialog account={auditAccount} events={auditEvents} error={auditError} onClose={() => setAuditAccount(null)} />}
       {showCreate && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"><form onSubmit={createDriver} className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-hy3n-border bg-hy3n-surface p-6"><div className="mb-5 flex items-center gap-2"><Car className="text-hy3n-gold" size={20} /><h2 className="font-semibold text-white">Register Driver</h2></div><p className="mb-4 text-xs text-muted-foreground">The account starts pending and offline. Ask the Driver to submit their documents before approving them.</p><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{[["fullName", "Full name", "text"], ["email", "Email", "email"], ["phone", "Phone", "tel"], ["password", "Temporary password (10+ characters)", "password"], ["vehicleMake", "Vehicle make", "text"], ["vehicleModel", "Vehicle model", "text"], ["licensePlate", "Plate number", "text"]].map(([key, label, type]) => <label key={key} className="text-xs text-muted-foreground">{label}<input required value={form[key]} type={type} minLength={key === "password" ? 10 : undefined} onChange={(event) => setForm((current) => ({ ...current, [key]: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-hy3n-border bg-hy3n-bg px-3 py-2.5 text-sm text-white outline-none focus:border-hy3n-gold/60" /></label>)}<label className="text-xs text-muted-foreground">Driver type<select value={form.serviceType} onChange={(event) => setForm((current) => ({ ...current, serviceType: event.target.value }))} className="mt-1.5 w-full rounded-xl border border-hy3n-border bg-hy3n-bg px-3 py-2.5 text-sm text-white outline-none">{serviceTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label></div><label className="mt-5 flex items-start gap-3 rounded-xl border border-purple-500/30 bg-purple-500/10 p-3 text-sm text-purple-100"><input type="checkbox" checked={form.isTestDriver} onChange={(event) => setForm((current) => ({ ...current, isTestDriver: event.target.checked }))} className="mt-0.5" /><span><span className="font-semibold">Create as Test Driver</span><span className="mt-0.5 block text-xs text-purple-200/80">Test Drivers are clearly labelled and excluded from analytics and financial reports by default.</span></span></label><div className="mt-6 flex gap-3"><button type="button" onClick={() => setShowCreate(false)} className="flex-1 rounded-xl border border-hy3n-border py-2.5 text-sm text-muted-foreground">Cancel</button><button disabled={busy === "create"} className="flex-1 rounded-xl bg-hy3n-gold py-2.5 text-sm font-semibold text-black disabled:opacity-50">{busy === "create" ? "Registering…" : "Register pending Driver"}</button></div></form></div>}

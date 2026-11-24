@@ -13,11 +13,24 @@ function clearAccessProof() {
   sessionStorage.removeItem(ACCESS_PROOF_KEY);
 }
 
+function identityToken(user, signal) {
+  if (!signal) return user.getIdToken();
+  if (signal.aborted) return Promise.reject(new DOMException("The request was cancelled.", "AbortError"));
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(new DOMException("The request was cancelled.", "AbortError"));
+    signal.addEventListener("abort", abort, { once: true });
+    Promise.resolve().then(() => user.getIdToken()).then(
+      (token) => { signal.removeEventListener("abort", abort); resolve(token); },
+      (error) => { signal.removeEventListener("abort", abort); reject(error); },
+    );
+  });
+}
+
 async function request(path, options = {}) {
   const user = auth.currentUser;
   if (!user) throw new Error("Sign in with an administrator account first.");
 
-  const token = await user.getIdToken();
+  const token = await identityToken(user, options.signal);
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -34,7 +47,11 @@ async function request(path, options = {}) {
       clearAccessProof();
       window.dispatchEvent(new Event("hy3n:admin-access-code-required"));
     }
-    throw new Error(body.error || "The administrator request could not be completed.");
+    const error = new Error(body.error || "The administrator request could not be completed.");
+    error.code = body.code;
+    error.status = response.status;
+    error.missingDocuments = body.missingDocuments;
+    throw error;
   }
   return body;
 }
@@ -87,10 +104,18 @@ export const adminApi = {
     });
   },
 
-  setDriverApproval(userId, approvalStatus, reason = "") {
+  driverDocuments(userId, options = {}) {
+    return request(`/api/admin/drivers/${encodeURIComponent(userId)}/documents`, {
+      signal: options.signal,
+      cache: "no-store",
+    });
+  },
+
+  setDriverApproval(userId, approvalStatus, reason = "", documentRevision) {
     return request(`/api/admin/drivers/${encodeURIComponent(userId)}/approval`, {
       method: "PATCH",
-      body: JSON.stringify({ approvalStatus, reason }),
+      cache: "no-store",
+      body: JSON.stringify({ approvalStatus, reason, documentRevision }),
     });
   },
 
