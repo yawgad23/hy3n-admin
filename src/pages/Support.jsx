@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { firebaseClient } from "@/api/firebaseClient";
 import { Plus, MessageSquare, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import SupportTicketForm from "../components/SupportTicketForm";
+import SupportReplyPanel from "../components/SupportReplyPanel";
+import { adminApi } from "@/api/adminApi";
+import { createSupportReplyFlow } from "@/lib/supportReplyFlow";
 import { toast } from "sonner";
 
 const priorityColors = {
@@ -27,12 +30,16 @@ export default function Support() {
   const [editTicket, setEditTicket] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [replyText, setReplyText] = useState({});
+  const [replyFlow] = useState(() => createSupportReplyFlow(adminApi));
 
   const fetchTickets = () => {
     setLoading(true);
     firebaseClient.entities.SupportTicket.list("-created_date", 200).then(data => {
       setTickets(data);
       setLoading(false);
+    }).catch(() => {
+      setLoading(false);
+      toast.error("Support tickets could not be refreshed. Please retry.");
     });
   };
 
@@ -42,20 +49,6 @@ export default function Support() {
     const update = { status };
     if (status === "Resolved") update.resolved_at = new Date().toLocaleString();
     await firebaseClient.entities.SupportTicket.update(ticket.id, update);
-    fetchTickets();
-  };
-
-  const sendReply = async (ticket) => {
-    const reply = replyText[ticket.id];
-    if (!reply?.trim()) return;
-    await firebaseClient.entities.SupportTicket.update(ticket.id, {
-      admin_reply: reply,
-      status: "In Progress",
-    });
-
-    // Call a Cloud Function to send a notification to the user
-    firebaseClient.functions.sendSupportReplyNotification({ ticketId: ticket.id, replyText: reply });
-    setReplyText(p => ({ ...p, [ticket.id]: "" }));
     fetchTickets();
   };
 
@@ -167,34 +160,21 @@ export default function Support() {
                   <div className="px-5 pb-5 border-t border-hy3n-border/50 pt-4 space-y-4">
                     <div className="bg-white/5 rounded-xl p-4">
                       <p className="text-xs text-muted-foreground font-medium mb-1">Full Message</p>
-                      <p className="text-white text-sm">{ticket.message}</p>
+                      <p className="text-white text-sm whitespace-pre-wrap break-words">{ticket.message}</p>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                       {ticket.from_phone && <div><p className="text-muted-foreground">Phone</p><p className="text-white font-medium">{ticket.from_phone}</p></div>}
-                      {ticket.from_email && <div><p className="text-muted-foreground">Email</p><p className="text-white font-medium">{ticket.from_email}</p></div>}
+                      {ticket.from_email && <div className="min-w-0"><p className="text-muted-foreground">Email</p><p className="text-white font-medium break-all">{ticket.from_email}</p></div>}
                       {ticket.related_ride_id && <div><p className="text-muted-foreground">Ride ID</p><p className="text-white font-medium">{ticket.related_ride_id}</p></div>}
                       {ticket.resolved_at && <div><p className="text-muted-foreground">Resolved At</p><p className="text-white font-medium">{ticket.resolved_at}</p></div>}
                     </div>
 
-                    {ticket.admin_reply && (
-                      <div className="bg-hy3n-gold/10 border border-hy3n-gold/20 rounded-xl p-4">
-                        <p className="text-xs text-hy3n-gold font-medium mb-1">Admin Reply</p>
-                        <p className="text-white text-sm">{ticket.admin_reply}</p>
-                      </div>
-                    )}
-
+                    <SupportReplyPanel ticket={ticket} draft={replyText[ticket.id] || ""} flow={replyFlow}
+                      onDraftChange={text => setReplyText(previous => ({ ...previous, [ticket.id]: text }))}
+                      onAccepted={fetchTickets} />
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground font-medium">Reply to this ticket</p>
-                      <textarea
-                        value={replyText[ticket.id] || ""}
-                        onChange={e => setReplyText(p => ({ ...p, [ticket.id]: e.target.value }))}
-                        placeholder="Type your reply..."
-                        rows={3}
-                        className="w-full bg-hy3n-bg border border-hy3n-border text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-hy3n-gold/60 resize-none"
-                      />
                       <div className="flex items-center gap-2 flex-wrap">
-                        <button onClick={() => sendReply(ticket)} className="text-xs bg-hy3n-gold hover:bg-hy3n-gold/90 text-black font-semibold px-3 py-1.5 rounded-lg transition-colors">Send Reply</button>
                         {ticket.status !== "Resolved" && (
                           <button onClick={() => updateStatus(ticket, "Resolved")} className="text-xs text-hy3n-green border border-hy3n-green/30 hover:bg-hy3n-green/10 px-3 py-1.5 rounded-lg transition-colors">Mark Resolved</button>
                         )}

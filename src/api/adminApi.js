@@ -51,6 +51,7 @@ async function request(path, options = {}) {
     error.code = body.code;
     error.status = response.status;
     error.missingDocuments = body.missingDocuments;
+    error.reply = body.reply;
     throw error;
   }
   return body;
@@ -224,6 +225,21 @@ export const adminApi = {
 
   notifications() {
     return request("/api/admin/notifications");
+  },
+
+  supportReplies(ticketId, options = {}) {
+    return request(`/api/admin/support/${encodeURIComponent(ticketId)}/replies`, {
+      signal: options.signal,
+      cache: "no-store",
+    });
+  },
+
+  sendSupportReply(ticketId, message, requestId) {
+    return request(`/api/admin/support/${encodeURIComponent(ticketId)}/replies`, {
+      method: "POST",
+      cache: "no-store",
+      body: JSON.stringify({ message, requestId }),
+    });
   },
 
   broadcastNotification(payload) {

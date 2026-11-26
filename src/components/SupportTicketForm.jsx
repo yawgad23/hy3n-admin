@@ -13,7 +13,6 @@ export default function SupportTicketForm({ ticket, onClose, onSaved }) {
     priority: ticket?.priority || "Medium",
     status: ticket?.status || "Open",
     related_ride_id: ticket?.related_ride_id || "",
-    admin_reply: ticket?.admin_reply || "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -69,11 +68,7 @@ export default function SupportTicketForm({ ticket, onClose, onSaved }) {
             {sel("priority", "Priority", ["Low","Medium","High","Urgent"])}
             {sel("status", "Status", ["Open","In Progress","Resolved","Closed"])}
           </div>
-          <div>
-            <label className="text-xs text-muted-foreground font-medium mb-1 block">Admin Reply</label>
-            <textarea value={form.admin_reply} onChange={e => setForm(p => ({ ...p, admin_reply: e.target.value }))} rows={3}
-              className="w-full bg-hy3n-bg border border-hy3n-border text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-hy3n-gold/60 resize-none" />
-          </div>
+          <p className="text-xs text-muted-foreground">Saving updates this ticket only. To email the sender, use Send Reply on the Support page.</p>
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-hy3n-border text-muted-foreground hover:text-white py-2.5 rounded-xl text-sm">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-hy3n-gold hover:bg-hy3n-gold/90 text-black font-semibold py-2.5 rounded-xl text-sm disabled:opacity-60">
