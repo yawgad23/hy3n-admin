@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { firebaseClient } from "@/api/firebaseClient";
+import { adminApi } from "@/api/adminApi";
 import { X } from "lucide-react";
 
 export default function SupportTicketForm({ ticket, onClose, onSaved }) {
@@ -15,16 +15,19 @@ export default function SupportTicketForm({ ticket, onClose, onSaved }) {
     related_ride_id: ticket?.related_ride_id || "",
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving) return;
     setSaving(true);
-    if (ticket?.id) {
-      await firebaseClient.entities.SupportTicket.update(ticket.id, form);
-    } else {
-      await firebaseClient.entities.SupportTicket.create(form);
-    }
-    onSaved();
+    setError("");
+    try {
+      await adminApi.saveSupportTicket(ticket?.id, form);
+      onSaved();
+    } catch (failure) {
+      setError(failure.message || "Ticket could not be saved. Your changes are retained.");
+    } finally { setSaving(false); }
   };
 
   const field = (key, label, type = "text", required = false) => (
@@ -64,11 +67,12 @@ export default function SupportTicketForm({ ticket, onClose, onSaved }) {
             {field("from_phone", "Phone")}
             {field("from_email", "Email", "email")}
             {field("related_ride_id", "Related Ride ID")}
-            {sel("category", "Category", ["Payment Issue","Driver Complaint","Rider Complaint","App Bug","Account Issue","Safety","Other"])}
+            {sel("category", "Category", [...new Set(["Payment Issue","Driver Complaint","Rider Complaint","App Bug","Account Issue","Safety","Other","website_contact","website_application", form.category])])}
             {sel("priority", "Priority", ["Low","Medium","High","Urgent"])}
             {sel("status", "Status", ["Open","In Progress","Resolved","Closed"])}
           </div>
           <p className="text-xs text-muted-foreground">Saving updates this ticket only. To email the sender, use Send Reply on the Support page.</p>
+          {error && <p role="alert" className="text-xs text-hy3n-gold">{error}</p>}
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose} className="flex-1 border border-hy3n-border text-muted-foreground hover:text-white py-2.5 rounded-xl text-sm">Cancel</button>
             <button type="submit" disabled={saving} className="flex-1 bg-hy3n-gold hover:bg-hy3n-gold/90 text-black font-semibold py-2.5 rounded-xl text-sm disabled:opacity-60">

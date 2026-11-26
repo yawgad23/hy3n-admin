@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { firebaseClient } from "@/api/firebaseClient";
 import { Plus, MessageSquare, AlertCircle, CheckCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import SupportTicketForm from "../components/SupportTicketForm";
 import SupportReplyPanel from "../components/SupportReplyPanel";
@@ -24,6 +23,8 @@ const statusConfig = {
 export default function Support() {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [pendingAction, setPendingAction] = useState(null);
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterPriority, setFilterPriority] = useState("All");
   const [showForm, setShowForm] = useState(false);
@@ -34,28 +35,39 @@ export default function Support() {
 
   const fetchTickets = () => {
     setLoading(true);
-    firebaseClient.entities.SupportTicket.list("-created_date", 200).then(data => {
-      setTickets(data);
+    setLoadError("");
+    return adminApi.supportTickets().then(result => {
+      setTickets(result.tickets);
       setLoading(false);
-    }).catch(() => {
+    }).catch(error => {
       setLoading(false);
-      toast.error("Support tickets could not be refreshed. Please retry.");
+      setLoadError(error.message || "Support tickets could not be refreshed.");
     });
   };
 
   useEffect(() => { fetchTickets(); }, []);
 
   const updateStatus = async (ticket, status) => {
-    const update = { status };
-    if (status === "Resolved") update.resolved_at = new Date().toLocaleString();
-    await firebaseClient.entities.SupportTicket.update(ticket.id, update);
-    fetchTickets();
+    if (pendingAction) return;
+    setPendingAction(ticket.id);
+    try {
+      await adminApi.saveSupportTicket(ticket.id, { status });
+      await fetchTickets();
+    } catch (error) {
+      toast.error(error.message || "Ticket status could not be updated.");
+    } finally { setPendingAction(null); }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm("Delete this ticket?")) return;
-    await firebaseClient.entities.SupportTicket.delete(id);
-    fetchTickets();
+    if (pendingAction || !confirm("Archive this ticket? It will leave the support list, while its reply history is retained.")) return;
+    setPendingAction(id);
+    try {
+      await adminApi.archiveSupportTicket(id);
+      setExpanded(null);
+      await fetchTickets();
+    } catch (error) {
+      toast.error(error.message || "Ticket could not be archived.");
+    } finally { setPendingAction(null); }
   };
 
   const filtered = tickets.filter(t => {
@@ -124,6 +136,11 @@ export default function Support() {
         <div className="flex items-center justify-center h-48">
           <div className="w-7 h-7 border-4 border-hy3n-gold/30 border-t-hy3n-gold rounded-full animate-spin" />
         </div>
+      ) : loadError ? (
+        <div role="alert" className="bg-hy3n-surface border border-hy3n-gold/30 rounded-2xl p-5 space-y-3">
+          <p className="text-sm text-hy3n-gold">{loadError}</p>
+          <button type="button" onClick={fetchTickets} className="text-sm text-hy3n-gold hover:underline">Retry loading tickets</button>
+        </div>
       ) : (
         <div className="space-y-3">
           {filtered.map(ticket => {
@@ -176,16 +193,16 @@ export default function Support() {
                     <div className="space-y-2">
                       <div className="flex items-center gap-2 flex-wrap">
                         {ticket.status !== "Resolved" && (
-                          <button onClick={() => updateStatus(ticket, "Resolved")} className="text-xs text-hy3n-green border border-hy3n-green/30 hover:bg-hy3n-green/10 px-3 py-1.5 rounded-lg transition-colors">Mark Resolved</button>
+                          <button disabled={!!pendingAction} onClick={() => updateStatus(ticket, "Resolved")} className="text-xs text-hy3n-green border border-hy3n-green/30 hover:bg-hy3n-green/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">Mark Resolved</button>
                         )}
                         {ticket.status !== "Closed" && (
-                          <button onClick={() => updateStatus(ticket, "Closed")} className="text-xs text-muted-foreground border border-hy3n-border hover:text-white px-3 py-1.5 rounded-lg transition-colors">Close Ticket</button>
+                          <button disabled={!!pendingAction} onClick={() => updateStatus(ticket, "Closed")} className="text-xs text-muted-foreground border border-hy3n-border hover:text-white px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">Close Ticket</button>
                         )}
                         {ticket.status === "Open" && (
-                          <button onClick={() => updateStatus(ticket, "In Progress")} className="text-xs text-hy3n-gold border border-hy3n-gold/30 hover:bg-hy3n-gold/10 px-3 py-1.5 rounded-lg transition-colors">Start Working</button>
+                          <button disabled={!!pendingAction} onClick={() => updateStatus(ticket, "In Progress")} className="text-xs text-hy3n-gold border border-hy3n-gold/30 hover:bg-hy3n-gold/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50">Start Working</button>
                         )}
-                        <button onClick={() => { setEditTicket(ticket); setShowForm(true); }} className="text-xs text-muted-foreground hover:text-white ml-auto transition-colors">Edit</button>
-                        <button onClick={() => handleDelete(ticket.id)} className="text-xs text-hy3n-red hover:underline transition-colors">Delete</button>
+                        <button disabled={!!pendingAction} onClick={() => { setEditTicket(ticket); setShowForm(true); }} className="text-xs text-muted-foreground hover:text-white ml-auto transition-colors disabled:opacity-50">Edit</button>
+                        <button disabled={!!pendingAction} onClick={() => handleDelete(ticket.id)} className="text-xs text-hy3n-red hover:underline transition-colors disabled:opacity-50">Archive</button>
                       </div>
                     </div>
                   </div>

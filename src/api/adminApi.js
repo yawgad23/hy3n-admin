@@ -227,6 +227,25 @@ export const adminApi = {
     return request("/api/admin/notifications");
   },
 
+  supportTickets(options = {}) {
+    return request("/api/admin/support", { signal: options.signal, cache: "no-store" });
+  },
+
+  saveSupportTicket(ticketId, metadata) {
+    return request(`/api/admin/support${ticketId ? `/${encodeURIComponent(ticketId)}` : ""}`, {
+      method: ticketId ? "PATCH" : "POST",
+      cache: "no-store",
+      body: JSON.stringify(metadata),
+    });
+  },
+
+  archiveSupportTicket(ticketId) {
+    return request(`/api/admin/support/${encodeURIComponent(ticketId)}`, {
+      method: "DELETE",
+      cache: "no-store",
+    });
+  },
+
   supportReplies(ticketId, options = {}) {
     return request(`/api/admin/support/${encodeURIComponent(ticketId)}/replies`, {
       signal: options.signal,
